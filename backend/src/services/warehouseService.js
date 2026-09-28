@@ -1,10 +1,17 @@
 const Warehouse = require("../models/Warehouse");
 const Inventory = require("../models/Inventory");
 const StockTransfer = require("../models/StockTransfer");
+const PurchaseOrder = require("../models/PurchaseOrder");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
-const { ROLES, RECORD_STATUS, USER_STATUS, OPEN_TRANSFER_STATUSES } = require("../utils/constants");
+const {
+    ROLES,
+    RECORD_STATUS,
+    USER_STATUS,
+    OPEN_TRANSFER_STATUSES,
+    OPEN_PURCHASE_STATUSES
+} = require("../utils/constants");
 const { logAction, getChanges } = require("./auditService");
 
 // Which user fields to show for the manager
@@ -92,10 +99,27 @@ const ensureNoOpenTransfers = async (warehouseId) => {
     }
 };
 
+// Goods ordered from suppliers are still due to be delivered here
+const ensureNoOpenPurchases = async (warehouseId) => {
+    const openPurchaseCount = await PurchaseOrder.countDocuments({
+        warehouse: warehouseId,
+        status: { $in: OPEN_PURCHASE_STATUSES }
+    });
+
+    if (openPurchaseCount > 0) {
+        throw new AppError(
+            409,
+            "WAREHOUSE_HAS_OPEN_PURCHASES",
+            `Cannot deactivate: ${openPurchaseCount} open purchase order(s) deliver to this warehouse. Receive or cancel them first.`
+        );
+    }
+};
+
 // Everything that must be true before a warehouse is deactivated
 const ensureCanDeactivate = async (warehouseId) => {
     await ensureNoStock(warehouseId);
     await ensureNoOpenTransfers(warehouseId);
+    await ensureNoOpenPurchases(warehouseId);
 };
 
 const getAuditFields = (warehouse) => ({

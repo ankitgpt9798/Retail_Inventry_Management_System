@@ -2,28 +2,39 @@ const mongoose = require("mongoose");
 const { PURCHASE_STATUS } = require("../utils/constants");
 
 // Items are embedded because they are always read and updated together with their PO.
-const purchaseItemSchema = new mongoose.Schema({
-    product: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
-        required: [true, "Product is required"]
+const purchaseItemSchema = new mongoose.Schema(
+    {
+        product: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Product",
+            required: [true, "Product is required"]
+        },
+        quantityOrdered: {
+            type: Number,
+            required: [true, "Quantity is required"],
+            min: [1, "Quantity must be at least 1"]
+        },
+        // Goes up each time goods arrive; allows partial receiving
+        quantityReceived: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+        unitCost: {
+            type: Number,
+            required: [true, "Unit cost is required"],
+            min: [0, "Unit cost cannot be negative"]
+        }
     },
-    quantityOrdered: {
-        type: Number,
-        required: [true, "Quantity is required"],
-        min: [1, "Quantity must be at least 1"]
-    },
-    // Goes up each time goods arrive; allows partial receiving
-    quantityReceived: {
-        type: Number,
-        default: 0,
-        min: 0
-    },
-    unitCost: {
-        type: Number,
-        required: [true, "Unit cost is required"],
-        min: [0, "Unit cost cannot be negative"]
+    {
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
     }
+);
+
+// How many units are still expected from the supplier (calculated, never saved)
+purchaseItemSchema.virtual("quantityOutstanding").get(function () {
+    return this.quantityOrdered - this.quantityReceived;
 });
 
 // A "purchase request" is simply a PurchaseOrder in DRAFT/PENDING status.
@@ -71,8 +82,10 @@ const purchaseOrderSchema = new mongoose.Schema(
             maxlength: 1000
         },
         rejectionReason: String,
+        cancelReason: String,
         // Filled in by the supplier (Supplier role)
         supplierConfirmedAt: Date,
+        supplierConfirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         deliveryNote: {
             type: String,
             trim: true,
@@ -85,13 +98,20 @@ const purchaseOrderSchema = new mongoose.Schema(
         },
         approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         approvedAt: Date,
+        rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        rejectedAt: Date,
+        orderedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         orderedAt: Date,
+        cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        cancelledAt: Date,
+        // When the LAST outstanding unit arrived
         receivedAt: Date
     },
     { timestamps: true }
 );
 
 purchaseOrderSchema.index({ supplier: 1, status: 1 });
+purchaseOrderSchema.index({ warehouse: 1, status: 1 });
 
 const PurchaseOrder = mongoose.model("PurchaseOrder", purchaseOrderSchema, "purchaseOrders");
 

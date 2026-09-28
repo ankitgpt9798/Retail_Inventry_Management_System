@@ -3,6 +3,7 @@ const Inventory = require("../models/Inventory");
 const Warehouse = require("../models/Warehouse");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
+const moveStatus = require("../utils/moveStatus");
 const {
     ROLES,
     TRANSFER_STATUS,
@@ -57,15 +58,11 @@ const ensureEnoughAvailable = async (product, warehouse, quantity) => {
     }
 };
 
-// Moves a transfer from one status to the next in ONE atomic operation.
+// Moves a transfer from one status to the next in ONE atomic operation (utils/moveStatus).
 // If two people click "Dispatch" at the same moment, only one update finds the
 // transfer still APPROVED — the other gets a 409 instead of removing stock twice.
-const moveStatus = async (transferId, allowedFromStatuses, toStatus, extraFields) => {
-    const transfer = await StockTransfer.findOneAndUpdate(
-        { _id: transferId, status: { $in: allowedFromStatuses } },
-        { $set: { status: toStatus, ...extraFields } },
-        { returnDocument: "after" }
-    );
+const moveTransferStatus = async (transferId, allowedFromStatuses, toStatus, extraFields) => {
+    const transfer = await moveStatus(StockTransfer, transferId, allowedFromStatuses, toStatus, extraFields);
 
     if (!transfer) {
         const current = await findTransferOrFail(transferId);
@@ -198,7 +195,7 @@ const approveTransfer = async (transferId, currentUser) => {
     await populateTransfer(transfer);
     await ensureEnoughAvailable(transfer.product, transfer.fromWarehouse, transfer.quantity);
 
-    const approved = await moveStatus(transfer._id, [TRANSFER_STATUS.REQUESTED], TRANSFER_STATUS.APPROVED, {
+    const approved = await moveTransferStatus(transfer._id, [TRANSFER_STATUS.REQUESTED], TRANSFER_STATUS.APPROVED, {
         approvedBy: currentUser._id,
         approvedAt: new Date()
     });
@@ -216,7 +213,7 @@ const approveTransfer = async (transferId, currentUser) => {
 
 // PUT /api/transfers/:id/reject  REQUESTED → REJECTED
 const rejectTransfer = async (transferId, reason, currentUser) => {
-    const rejected = await moveStatus(transferId, [TRANSFER_STATUS.REQUESTED], TRANSFER_STATUS.REJECTED, {
+    const rejected = await moveTransferStatus(transferId, [TRANSFER_STATUS.REQUESTED], TRANSFER_STATUS.REJECTED, {
         rejectedBy: currentUser._id,
         rejectedAt: new Date(),
         rejectionReason: reason
@@ -236,7 +233,7 @@ const rejectTransfer = async (transferId, reason, currentUser) => {
 // PUT /api/transfers/:id/dispatch  APPROVED → DISPATCHED, source quantity -= X
 const dispatchTransfer = async (transferId, currentUser) => {
     // 1. Claim the transfer first (atomic), so it can only be dispatched once
-    const transfer = await moveStatus(transferId, [TRANSFER_STATUS.APPROVED], TRANSFER_STATUS.DISPATCHED, {
+    const transfer = await moveTransferStatus(transferId, [TRANSFER_STATUS.APPROVED], TRANSFER_STATUS.DISPATCHED, {
         dispatchedBy: currentUser._id,
         dispatchedAt: new Date()
     });
@@ -278,7 +275,7 @@ const dispatchTransfer = async (transferId, currentUser) => {
 
 // PUT /api/transfers/:id/receive  DISPATCHED → RECEIVED, destination quantity += X
 const receiveTransfer = async (transferId, currentUser) => {
-    const transfer = await moveStatus(transferId, [TRANSFER_STATUS.DISPATCHED], TRANSFER_STATUS.RECEIVED, {
+    const transfer = await moveTransferStatus(transferId, [TRANSFER_STATUS.DISPATCHED], TRANSFER_STATUS.RECEIVED, {
         receivedBy: currentUser._id,
         receivedAt: new Date()
     });
@@ -319,7 +316,7 @@ const receiveTransfer = async (transferId, currentUser) => {
 const cancelTransfer = async (transferId, reason, currentUser) => {
     const before = await findTransferOrFail(transferId);
 
-    const cancelled = await moveStatus(
+    const cancelled = await moveTransferStatus(
         transferId,
         [TRANSFER_STATUS.REQUESTED, TRANSFER_STATUS.APPROVED],
         TRANSFER_STATUS.CANCELLED,

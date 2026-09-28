@@ -153,6 +153,18 @@ User 1──* Notification,  User 1──* AuditLog
 | POST | /api/suppliers | ADMIN, MANAGER | Create |
 | PUT | /api/suppliers/:id | ADMIN, MANAGER | Edit / reactivate (INACTIVE also deactivates its logins) |
 | DELETE | /api/suppliers/:id | ADMIN, MANAGER | Deactivate + deactivate its active SUPPLIER logins |
+| GET | /api/purchases?status=&supplier=&warehouse=&search=&page=&limit= | ADMIN, MANAGER, SUPPLIER* | List/history (*own company, ordered POs only) |
+| GET | /api/purchases/:id | ADMIN, MANAGER, SUPPLIER* | One PO; items include `quantityOutstanding` |
+| POST | /api/purchases | ADMIN, MANAGER | Create DRAFT `{supplier, warehouse, items[{product, quantityOrdered, unitCost?}], expectedDeliveryDate?, notes?, submit?}` |
+| PUT | /api/purchases/:id | ADMIN, MANAGER | Edit DRAFT (supplier, warehouse, items, date, notes) |
+| PUT | /api/purchases/:id/submit | ADMIN, MANAGER | DRAFT → PENDING |
+| PUT | /api/purchases/:id/approve | ADMIN, MANAGER (not requester) | PENDING → APPROVED |
+| PUT | /api/purchases/:id/reject | ADMIN, MANAGER | PENDING → REJECTED `{reason}` |
+| PUT | /api/purchases/:id/order | ADMIN, MANAGER | APPROVED → ORDERED (supplier notified) |
+| PUT | /api/purchases/:id/confirm | SUPPLIER (own) | Confirm once `{expectedDeliveryDate?, deliveryNote?}` |
+| PUT | /api/purchases/:id/delivery | SUPPLIER (own) | Update delivery date/note |
+| PUT | /api/purchases/:id/receive | ADMIN, MANAGER | `{items[{product, quantity}]}` → PARTIALLY_RECEIVED / RECEIVED, stock + |
+| PUT | /api/purchases/:id/cancel | ADMIN, MANAGER | Any open status → CANCELLED `{reason?}` |
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -226,11 +238,30 @@ REQUESTED ─approve─► APPROVED ─dispatch─► DISPATCHED ─receive─�
 - **Deactivating a supplier (DELETE or PUT status INACTIVE) also deactivates its ACTIVE SUPPLIER-role users** (each audited as USER_DEACTIVATED with the reason); the response includes `deactivatedUserCount`. Reactivating the supplier does NOT reactivate users — an admin does that per person.
 - SUPPLIER users can only be linked to an ACTIVE supplier (422 `SUPPLIER_INACTIVE`). The link is re-checked only when role/supplier changes or the user is reactivated, so other edits (e.g. name) still work for users of inactive suppliers.
 
+## Purchase Rules
+```
+DRAFT ─submit─► PENDING ─approve─► APPROVED ─order─► ORDERED ─receive─► PARTIALLY_RECEIVED ─receive─► RECEIVED
+  (edit)          │ reject                            ▲ supplier: confirm / delivery update
+                  ▼                                   cancel from any open status → CANCELLED
+               REJECTED
+```
+- A "purchase request" = PO in DRAFT/PENDING (one document for the whole life). `PO-000001` numbers from `counterService`.
+- Items: 1–50, each product once, product ACTIVE; `unitCost` defaults to product cost price; `totalAmount` calculated by server (`calculateTotal`).
+- Supplier + warehouse must be ACTIVE (supplier re-checked at approve and order). Requester cannot approve (`SELF_APPROVAL_NOT_ALLOWED`).
+- **Supplier portal:** a SUPPLIER user sees only POs of their own company that have been ordered (`orderedAt` set); anything else → 404 (not 403). Their `?supplier=` filter is overridden.
+- **Receiving:** lines checked against outstanding (400 `OVER_RECEIPT`), product must be on the PO (422 `PRODUCT_NOT_IN_PURCHASE`), whole delivery must fit warehouse capacity (409). Status is calculated (`calculateReceiptStatus`). Stock via `addStock` (STOCK_IN, referenceType PURCHASE_ORDER, `requireActiveProduct: false`).
+- **Optimistic locking** on receive: update only if `__v` is still what we read, and `$inc __v`. Concurrent receipt → 409 `PURCHASE_CHANGED` (or `OVER_RECEIPT`). Tested: two simultaneous receipts of the last 40 → received once.
+- If `addStock` fails part-way, `undoReceiptLines` removes the unstocked lines from the PO so the PO always matches real stock (tested).
+- Cancel from PARTIALLY_RECEIVED = "cancel the rest"; received quantities and stock stay. RECEIVED/REJECTED/CANCELLED can't be cancelled.
+- Shared `utils/moveStatus.js` (atomic status change) is used by transfers and purchases.
+- Notifications: submit → other admins/managers (PURCHASE_UPDATE); approve → requester (PURCHASE_APPROVED); reject/confirm/delivery/cancel → requester; order/cancel-after-order → supplier's portal users; receive → requester (PURCHASE_RECEIVED).
+- Audit: PURCHASE_CREATED / UPDATED / SUBMITTED / APPROVED / REJECTED / ORDERED / CONFIRMED_BY_SUPPLIER / DELIVERY_UPDATED / RECEIVED (with lines) / CANCELLED.
+
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
 - [x] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED) — `warehouseService.ensureCanDeactivate`.
-- [ ] Step 11: cannot deactivate a warehouse with open purchase orders.
-- [ ] Step 11: cannot deactivate a supplier with open purchase orders.
+- [x] Step 11: cannot deactivate a warehouse with open purchase orders (`WAREHOUSE_HAS_OPEN_PURCHASES`).
+- [x] Step 11: cannot deactivate a supplier with open purchase orders (`SUPPLIER_HAS_OPEN_PURCHASES`).
 - [ ] Step 12: cannot deactivate a warehouse with open customer orders.
 
 ## Authentication Flow
@@ -289,8 +320,9 @@ _Step 17._
 | 7. Warehouses | Done |
 | 8. Inventory (stock-in/out, low stock, history) | Done |
 | 9. Stock transfers | Done |
-| 10. Suppliers | Done (278 tests passing) |
-| 11. Purchases (requests, POs, supplier portal, receiving) | Next |
+| 10. Suppliers | Done |
+| 11. Purchases (requests, POs, supplier portal, receiving) | Done (321 tests passing) |
+| 12. Customer orders (reserve stock) | Next |
 
 ## Known Issues
 - A JWT copied before a plain logout stays valid until it expires (max 1 day). Password change/reset does revoke all tokens (tokenVersion). Acceptable for now; see Future Improvements.

@@ -1,8 +1,9 @@
 const Supplier = require("../models/Supplier");
 const User = require("../models/User");
+const PurchaseOrder = require("../models/PurchaseOrder");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
-const { ROLES, RECORD_STATUS, USER_STATUS } = require("../utils/constants");
+const { ROLES, RECORD_STATUS, USER_STATUS, OPEN_PURCHASE_STATUSES } = require("../utils/constants");
 const { logAction, getChanges } = require("./auditService");
 
 // ---------- Helpers ----------
@@ -20,6 +21,22 @@ const ensureEmailIsFree = async (email, exceptSupplierId) => {
     const existingSupplier = await Supplier.findOne({ email: email.toLowerCase() });
     if (existingSupplier && !existingSupplier._id.equals(exceptSupplierId)) {
         throw new AppError(409, "SUPPLIER_EMAIL_EXISTS", `Email is already used by supplier "${existingSupplier.name}"`);
+    }
+};
+
+// Don't stop working with a supplier who still has orders in progress
+const ensureNoOpenPurchases = async (supplierId) => {
+    const openPurchaseCount = await PurchaseOrder.countDocuments({
+        supplier: supplierId,
+        status: { $in: OPEN_PURCHASE_STATUSES }
+    });
+
+    if (openPurchaseCount > 0) {
+        throw new AppError(
+            409,
+            "SUPPLIER_HAS_OPEN_PURCHASES",
+            `Cannot deactivate: ${openPurchaseCount} open purchase order(s) with this supplier. Receive or cancel them first.`
+        );
     }
 };
 
@@ -125,6 +142,9 @@ const updateSupplier = async (supplierId, updates, currentUser) => {
     }
 
     const isDeactivating = updates.status === RECORD_STATUS.INACTIVE && supplier.status === RECORD_STATUS.ACTIVE;
+    if (isDeactivating) {
+        await ensureNoOpenPurchases(supplier._id);
+    }
 
     const before = getAuditFields(supplier);
     supplier.set(updates);
@@ -157,6 +177,8 @@ const deactivateSupplier = async (supplierId, currentUser) => {
     if (supplier.status === RECORD_STATUS.INACTIVE) {
         return { supplier, deactivatedUserCount: 0 };
     }
+
+    await ensureNoOpenPurchases(supplier._id);
 
     supplier.status = RECORD_STATUS.INACTIVE;
     await supplier.save();
