@@ -108,7 +108,21 @@ const NOTIFICATION_TYPE = {
     SYSTEM_ALERT: "SYSTEM_ALERT"
 };
 
+// The kinds of records the audit log talks about (AuditLog.entityType)
+const AUDIT_ENTITY_TYPES = [
+    "User",
+    "Category",
+    "Product",
+    "Warehouse",
+    "Inventory",
+    "StockTransfer",
+    "Supplier",
+    "PurchaseOrder",
+    "Order"
+];
+
 module.exports = {
+    AUDIT_ENTITY_TYPES,
     ROLES,
     USER_STATUS,
     RECORD_STATUS,

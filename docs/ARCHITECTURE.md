@@ -187,6 +187,9 @@ User 1──* Notification,  User 1──* AuditLog
 | GET | /api/reports/suppliers?from=&to= | ADMIN, MANAGER | Volume, value, fulfilment rate, open POs |
 | GET | /api/reports/low-stock?warehouse= | ADMIN, MANAGER | Shortage + quantity on order |
 | GET | /api/reports/product-performance?from=&to=&warehouse=&sortBy=&limit= | ADMIN, MANAGER | Top products (units or revenue) |
+| GET | /api/audit-logs?user=&action=&entityType=&entityId=&from=&to=&sort=&page=&limit= | ADMIN | Search audit trail; `entityType`+`entityId`+`sort=oldest` = one record's history |
+| GET | /api/audit-logs/filters | ADMIN | Distinct `actions` and `entityTypes` (for dropdowns) |
+| GET | /api/audit-logs/:id | ADMIN | One entry (old/new values, metadata) |
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -343,6 +346,14 @@ Read-only; built with MongoDB **aggregation pipelines** (`$match` → `$group` �
 - Monthly series are zero-filled (charts need every month). Default range: last 6 months.
 - Dashboard: STAFF may view (counts/trends only); detailed reports: ADMIN + INVENTORY_MANAGER.
 
+## Audit Log (Step 16)
+- Written by `auditService.logAction()` from every module since Step 4: `{ user, action, entityType, entityId, oldValue, newValue, metadata, createdAt }`. Updates store only changed fields (`getChanges`). A failed audit write never breaks the business action.
+- Record types (`AUDIT_ENTITY_TYPES`): User, Category, Product, Warehouse, Inventory, StockTransfer, Supplier, PurchaseOrder, Order.
+- Read API: ADMIN only (spec). Filters: user, action (`[A-Z_]`), entityType, entityId, from/to (YYYY-MM-DD, business time zone, same as reports; no dates = all time), sort newest/oldest, pagination. User populated with name/email/role (never password).
+- **Append-only, two layers:** (1) no POST/PUT/DELETE routes (tested → 404); (2) the AuditLog model's middleware throws on every update/delete/replace (query and document) and on re-saving an existing entry — only `create` works (probed: 12 operations blocked; tested).
+- Passwords/hashes never enter the audit log (tested by scanning all entries after register, login, change and reset).
+- Reading the audit log is not itself audited.
+
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
 - [x] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED) — `warehouseService.ensureCanDeactivate`.
@@ -411,8 +422,9 @@ _Step 17._
 | 12. Customer orders (reserve stock) | Done |
 | 13. Order fulfillment (pick, pack, ship, deliver; Rule 5) | Done |
 | 14. Notifications API (list, unread count, mark read) | Done |
-| 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done (433 tests passing) |
-| 16. Audit log API | Next |
+| 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done |
+| 16. Audit log API | Done (450 tests passing) — **backend complete** |
+| 17. Frontend (public website + staff app) | Next |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.
@@ -420,4 +432,6 @@ _Step 17._
 
 ## Future Improvements
 - Redis token blocklist on logout; rate limiting on /login (brute-force protection).
+- Audit failed login attempts (LOGIN_FAILED with IP) — useful for spotting password-guessing.
+- Tamper-proof audit trail: today someone with direct database access (Compass/mongosh) can still edit `auditLogs`. Options: a database user for the app with insert-only rights on that collection, hash-chaining entries, or shipping logs to write-once storage.
 - Docker, CI/CD, cloud deployment (explicitly out of scope for now).

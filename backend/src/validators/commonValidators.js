@@ -31,4 +31,40 @@ const booleanFlagSchema = (name) =>
         .transform((value) => value === "true")
         .optional();
 
-module.exports = { objectIdSchema, paginationSchema, searchSchema, booleanFlagSchema };
+// ---------- Day ranges (reports, audit logs) ----------
+// Plain "YYYY-MM-DD" days in the business's time zone. They stay as text;
+// utils/reportDates turns them into exact start/end moments.
+const isRealDate = (text) => {
+    const date = new Date(`${text}T00:00:00Z`);
+    // new Date("2026-02-30") rolls over to 2 March, so compare back to the text
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text;
+};
+
+const dayField = (name) =>
+    z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, `${name} must be a date like 2026-09-30`)
+        .refine(isRealDate, `${name} is not a real date`)
+        .optional();
+
+// ?from=2026-09-01&to=2026-09-30
+const rangeFields = {
+    from: dayField("from"),
+    to: dayField("to")
+};
+
+// from ≤ to (text comparison works for YYYY-MM-DD)
+const withValidRange = (schema) =>
+    schema.refine((query) => !query.from || !query.to || query.from <= query.to, {
+        message: "from cannot be after to",
+        path: ["from"]
+    });
+
+module.exports = {
+    objectIdSchema,
+    paginationSchema,
+    searchSchema,
+    booleanFlagSchema,
+    rangeFields,
+    withValidRange
+};

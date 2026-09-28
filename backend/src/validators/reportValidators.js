@@ -1,32 +1,5 @@
 const { z } = require("zod");
-const { objectIdSchema } = require("./commonValidators");
-
-// Report dates are plain "YYYY-MM-DD" days in the business's time zone.
-// They stay as text; utils/reportDates turns them into exact start/end moments.
-const isRealDate = (text) => {
-    const date = new Date(`${text}T00:00:00Z`);
-    // new Date("2026-02-30") rolls over to 2 March, so compare back to the text
-    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text;
-};
-
-const dayField = (name) =>
-    z
-        .string()
-        .regex(/^\d{4}-\d{2}-\d{2}$/, `${name} must be a date like 2026-09-30`)
-        .refine(isRealDate, `${name} is not a real date`)
-        .optional();
-
-// from ≤ to (text comparison works for YYYY-MM-DD)
-const withValidRange = (schema) =>
-    schema.refine((query) => !query.from || !query.to || query.from <= query.to, {
-        message: "from cannot be after to",
-        path: ["from"]
-    });
-
-const rangeFields = {
-    from: dayField("from"),
-    to: dayField("to")
-};
+const { objectIdSchema, rangeFields, withValidRange } = require("./commonValidators");
 
 // GET /api/reports/inventory?warehouse=&category=
 const inventoryReportQuerySchema = z.object({
