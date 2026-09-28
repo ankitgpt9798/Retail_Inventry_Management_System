@@ -45,7 +45,13 @@ const userSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "Supplier"
         },
-        lastLoginAt: Date
+        lastLoginAt: Date,
+        // Copied into every login token. Increased when the password changes,
+        // so all tokens created before that no longer match → logged out everywhere.
+        tokenVersion: {
+            type: Number,
+            default: 0
+        }
     },
     {
         timestamps: true,
@@ -53,6 +59,7 @@ const userSchema = new mongoose.Schema(
             // Safety net: even if a password hash was loaded, never send it in a response
             transform: (doc, ret) => {
                 delete ret.password;
+                delete ret.tokenVersion;
                 return ret;
             }
         }

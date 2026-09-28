@@ -17,11 +17,11 @@ const getTokenExpiryDays = () => {
     return Number(process.env.JWT_EXPIRES_IN_DAYS) || 1;
 };
 
-// The token only stores the user's id. Role and status are read fresh from
-// the database on every request (see authMiddleware), so changes apply immediately.
-const createToken = (userId) => {
+// The token only stores the user's id and tokenVersion. Role and status are read fresh
+// from the database on every request (see authMiddleware), so changes apply immediately.
+const createToken = (user) => {
     return jwt.sign(
-        { userId: userId.toString() },
+        { userId: user._id.toString(), tokenVersion: user.tokenVersion },
         process.env.JWT_SECRET,
         { expiresIn: `${getTokenExpiryDays()}d` }
     );
@@ -92,7 +92,7 @@ const loginUser = async ({ email, password }, requestInfo) => {
         metadata: requestInfo
     });
 
-    const token = createToken(user._id);
+    const token = createToken(user);
 
     return { user, token };
 };

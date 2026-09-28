@@ -30,6 +30,11 @@ const protect = async (req, res, next) => {
     if (!user) {
         throw new AppError(401, "USER_NOT_FOUND", "The account for this session no longer exists");
     }
+
+    // The password was changed after this token was created (tokenVersion was increased)
+    if (decoded.tokenVersion !== user.tokenVersion) {
+        throw new AppError(401, "SESSION_REVOKED", "Your password was changed. Please log in again");
+    }
     if (user.status !== USER_STATUS.ACTIVE) {
         throw new AppError(403, "ACCOUNT_INACTIVE", "Your account is not active");
     }

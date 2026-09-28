@@ -104,9 +104,28 @@ User 1──* Notification,  User 1──* AuditLog
 | POST | /api/auth/register | none | Self-register → always STAFF + PENDING, no cookie |
 | POST | /api/auth/login | none | Verify password → set `token` HTTP-only cookie |
 | POST | /api/auth/logout | none | Clear the cookie |
-| GET | /api/auth/me | logged in | Current user (frontend calls on page load) |
+| GET | /api/auth/me | logged in | Current user / own profile (frontend calls on page load) |
+| PUT | /api/users/profile | logged in | Edit own name, phone |
+| PUT | /api/users/profile/password | logged in | Change own password (needs current) → logs out everywhere |
+| GET | /api/users?search=&role=&status=&page=&limit= | ADMIN | Search/filter/paginate users |
+| GET | /api/users/:id | ADMIN | One user |
+| POST | /api/users | ADMIN | Create user with any role (ACTIVE) |
+| PUT | /api/users/:id | ADMIN | Edit, assign role, approve (status ACTIVE) / deactivate |
+| PUT | /api/users/:id/password | ADMIN | Reset password → user logged out everywhere |
+| DELETE | /api/users/:id | ADMIN | Soft delete = status INACTIVE |
 
-**Error codes so far:** `VALIDATION_ERROR` 422, `INVALID_JSON` 400, `INVALID_ID` 400, `INVALID_CREDENTIALS` 401, `NOT_AUTHENTICATED` 401, `INVALID_TOKEN` 401, `TOKEN_EXPIRED` 401, `USER_NOT_FOUND` 401, `ACCOUNT_PENDING` 403, `ACCOUNT_INACTIVE` 403, `FORBIDDEN` 403, `EMAIL_EXISTS` 409, `DUPLICATE_VALUE` 409, `NOT_FOUND` 404, `SERVER_ERROR` 500.
+**List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
+
+**Error codes so far:** `VALIDATION_ERROR` 422, `SUPPLIER_REQUIRED` 422, `INVALID_JSON` 400, `INVALID_ID` 400, `CANNOT_CHANGE_OWN_ROLE` 400, `CANNOT_CHANGE_OWN_STATUS` 400, `CANNOT_DEACTIVATE_SELF` 400, `INVALID_CURRENT_PASSWORD` 400, `SAME_PASSWORD` 400, `INVALID_CREDENTIALS` 401, `NOT_AUTHENTICATED` 401, `INVALID_TOKEN` 401, `TOKEN_EXPIRED` 401, `SESSION_REVOKED` 401, `USER_NOT_FOUND` 401/404, `ACCOUNT_PENDING` 403, `ACCOUNT_INACTIVE` 403, `FORBIDDEN` 403, `SUPPLIER_NOT_FOUND` 404, `NOT_FOUND` 404, `EMAIL_EXISTS` 409, `DUPLICATE_VALUE` 409, `SERVER_ERROR` 500.
+
+## User Management Rules
+- DELETE never removes a user (orders/audit logs reference them) — it sets `INACTIVE`.
+- Admins cannot change their own role/status or deactivate themselves → the acting admin always stays an active admin, so the system can never lose its last admin.
+- Admins may set status `ACTIVE`/`INACTIVE` only; `PENDING` comes only from self-registration.
+- `SUPPLIER` users must link to an existing Supplier; any other role has `supplier: null`.
+- `tokenVersion` (User field, copied into the JWT) is increased on password change/reset; `protect` rejects tokens with an old version (`SESSION_REVOKED`).
+- Search text is regex-escaped (`utils/escapeRegex.js`) before use in MongoDB.
+- Audit actions: `USER_CREATED`, `USER_UPDATED` (old/new values), `USER_DEACTIVATED`, `USER_PASSWORD_RESET`, `PROFILE_UPDATED`, `PASSWORD_CHANGED` (never password values).
 
 ## Authentication Flow
 **Roles are admin-managed.** Public registration never accepts `role`/`status` (Zod strips unknown keys); new users are `STAFF` + `PENDING` until an admin approves them. The first admin comes from `npm run seed:admin` (values in `.env`).
@@ -149,6 +168,7 @@ _Step 17._
 - `tests/api`: HTTP requests through Supertest (auth tests use the test DB)
 - `tests/helpers/testDb.js`: connect/clear/close the test DB. Passes `runtimeAdapters: { os }` to the driver because MongoDB driver 7.x loads `os` via `import()`, which fails inside Jest and causes "Missing required sub-document 'driver'".
 - `tests/setupEnv.js`: test-only JWT secret and NODE_ENV (tests never read `.env`)
+- `tests/helpers/userHelpers.js`: `createTestUser({ role, email })` + `loginAgent(email)` (a supertest agent that keeps the cookie)
 
 ## Progress
 | Step | Status |
@@ -156,11 +176,12 @@ _Step 17._
 | 1. Project setup | Done |
 | 2. MongoDB connection | Done |
 | 3. Database schemas | Done (13 models, unit + DB tests) |
-| 4. Authentication | Done (53 tests passing) |
-| 5. User & role management | Next |
+| 4. Authentication | Done |
+| 5. User & role management | Done (100 tests passing) |
+| 6. Products & categories | Next |
 
 ## Known Issues
-- A JWT copied before logout stays valid until it expires (max 1 day). Acceptable for now; see Future Improvements.
+- A JWT copied before a plain logout stays valid until it expires (max 1 day). Password change/reset does revoke all tokens (tokenVersion). Acceptable for now; see Future Improvements.
 
 ## Future Improvements
 - Redis token blocklist on logout; rate limiting on /login (brute-force protection).
