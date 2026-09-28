@@ -6,6 +6,7 @@ const Warehouse = require("../models/Warehouse");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
 const moveStatus = require("../utils/moveStatus");
+const roundMoney = require("../utils/roundMoney");
 const {
     ROLES,
     RECORD_STATUS,
@@ -29,8 +30,6 @@ const PURCHASE_MANAGER_ROLES = [ROLES.ADMIN, ROLES.INVENTORY_MANAGER];
 const RECEIVABLE_STATUSES = [PURCHASE_STATUS.ORDERED, PURCHASE_STATUS.PARTIALLY_RECEIVED];
 
 // ---------- Pure helpers (no database; unit-tested) ----------
-
-const roundMoney = (value) => Math.round(value * 100) / 100;
 
 // Sum of quantity × unit cost over all lines
 const calculateTotal = (items) => {

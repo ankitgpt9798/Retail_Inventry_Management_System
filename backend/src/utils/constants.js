@@ -47,6 +47,19 @@ const ORDER_STATUS = {
     CANCELLED: "CANCELLED"
 };
 
+// Orders whose stock is reserved (Rule 4) and not yet shipped
+const RESERVING_ORDER_STATUSES = [
+    ORDER_STATUS.CONFIRMED,
+    ORDER_STATUS.PROCESSING,
+    ORDER_STATUS.PACKED
+];
+
+// Orders that can still be cancelled (before the goods leave the warehouse)
+const CANCELLABLE_ORDER_STATUSES = [ORDER_STATUS.PENDING, ...RESERVING_ORDER_STATUSES];
+
+// Orders that still need their warehouse (it must stay active)
+const OPEN_ORDER_STATUSES = CANCELLABLE_ORDER_STATUSES;
+
 const PURCHASE_STATUS = {
     DRAFT: "DRAFT",
     PENDING: "PENDING",
@@ -102,6 +115,9 @@ module.exports = {
     TRANSFER_STATUS,
     OPEN_TRANSFER_STATUSES,
     ORDER_STATUS,
+    RESERVING_ORDER_STATUSES,
+    CANCELLABLE_ORDER_STATUSES,
+    OPEN_ORDER_STATUSES,
     PURCHASE_STATUS,
     OPEN_PURCHASE_STATUSES,
     STOCK_TRANSACTION_TYPE,

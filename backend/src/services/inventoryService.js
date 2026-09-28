@@ -247,6 +247,65 @@ const removeStock = async ({
     return populateInventory(inventory);
 };
 
+// ---------- Reservations (customer orders) ----------
+// A reservation does NOT change quantity (the goods are still on the shelf);
+// it only raises reservedQuantity, so they are no longer "available" to anyone else.
+
+// Business Rule 4: reservedQuantity += orderQuantity (only if enough is available)
+const reserveStock = async ({ productId, warehouseId, quantity }) => {
+    // Same atomic "check + change in one operation" as removeStock (Rule 2)
+    const inventory = await Inventory.findOneAndUpdate(
+        {
+            product: productId,
+            warehouse: warehouseId,
+            $expr: { $gte: [{ $subtract: ["$quantity", "$reservedQuantity"] }, quantity] }
+        },
+        { $inc: { reservedQuantity: quantity } },
+        { returnDocument: "after" }
+    );
+
+    if (!inventory) {
+        const product = await findProductOrFail(productId);
+        const warehouse = await findWarehouseOrFail(warehouseId);
+        const current = await Inventory.findOne({ product: productId, warehouse: warehouseId });
+        const available = current ? current.availableQuantity : 0;
+        throw new AppError(
+            400,
+            "INSUFFICIENT_STOCK",
+            `Insufficient stock of ${product.sku} in ${warehouse.code}: ${available} available, ${quantity} requested`
+        );
+    }
+
+    // Reserving lowers "available", so it can cross the reorder level (Rule 7)
+    const before = {
+        quantity: inventory.quantity,
+        reservedQuantity: inventory.reservedQuantity - quantity,
+        reorderLevel: inventory.reorderLevel
+    };
+    if (becameLowStock(before, inventory)) {
+        await populateInventory(inventory);
+        await sendLowStockAlert(inventory, inventory.product, inventory.warehouse);
+    }
+
+    return inventory;
+};
+
+// Undo a reservation (order cancelled, or another line of the same order failed)
+const releaseStock = async ({ productId, warehouseId, quantity }) => {
+    // The condition stops reservedQuantity from ever going below 0
+    const inventory = await Inventory.findOneAndUpdate(
+        { product: productId, warehouse: warehouseId, reservedQuantity: { $gte: quantity } },
+        { $inc: { reservedQuantity: -quantity } },
+        { returnDocument: "after" }
+    );
+
+    if (!inventory) {
+        // Should never happen; if it does, the data needs a human to look at it
+        throw new AppError(500, "RESERVATION_MISMATCH", "Reserved quantity is lower than the amount being released");
+    }
+    return inventory;
+};
+
 // ---------- Reads ----------
 
 // GET /api/inventory — warehouse-wise view when ?warehouse= is given
@@ -388,6 +447,8 @@ module.exports = {
     becameLowStock,
     addStock,
     removeStock,
+    reserveStock,
+    releaseStock,
     getInventory,
     getLowStock,
     getInventoryById,

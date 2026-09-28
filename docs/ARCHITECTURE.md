@@ -165,6 +165,12 @@ User 1──* Notification,  User 1──* AuditLog
 | PUT | /api/purchases/:id/delivery | SUPPLIER (own) | Update delivery date/note |
 | PUT | /api/purchases/:id/receive | ADMIN, MANAGER | `{items[{product, quantity}]}` → PARTIALLY_RECEIVED / RECEIVED, stock + |
 | PUT | /api/purchases/:id/cancel | ADMIN, MANAGER | Any open status → CANCELLED `{reason?}` |
+| GET | /api/orders?status=&warehouse=&search=&from=&to=&page=&limit= | ADMIN, MANAGER, STAFF | List; search order number / customer name / phone |
+| GET | /api/orders/:id | ADMIN, MANAGER, STAFF | `{ order (with statusHistory), items }` |
+| POST | /api/orders | ADMIN, STAFF | Create PENDING `{customer{name, email?, phone?, address?}, warehouse, items[{product, quantity}], notes?, confirm?}` |
+| PUT | /api/orders/:id | ADMIN, STAFF | Edit PENDING (customer, warehouse, items, notes) |
+| PUT | /api/orders/:id/confirm | ADMIN, STAFF | PENDING → CONFIRMED, reserve stock |
+| DELETE | /api/orders/:id | ADMIN, STAFF | Cancel `{reason?}` (kept; reservation released) |
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -257,12 +263,30 @@ DRAFT ─submit─► PENDING ─approve─► APPROVED ─order─► ORDERED �
 - Notifications: submit → other admins/managers (PURCHASE_UPDATE); approve → requester (PURCHASE_APPROVED); reject/confirm/delivery/cancel → requester; order/cancel-after-order → supplier's portal users; receive → requester (PURCHASE_RECEIVED).
 - Audit: PURCHASE_CREATED / UPDATED / SUBMITTED / APPROVED / REJECTED / ORDERED / CONFIRMED_BY_SUPPLIER / DELIVERY_UPDATED / RECEIVED (with lines) / CANCELLED.
 
+## Customer Order Rules (Step 12)
+```
+PENDING ─confirm (reserve)─► CONFIRMED ─► PROCESSING ─► PACKED ─► SHIPPED ─► DELIVERED   (Step 13)
+   └──────── cancel (release if reserved) ────────────────────┘ → CANCELLED
+```
+- `ORD-000001` numbers. Customer embedded in the order; lines in `orderItems` (separate collection, spec).
+- **Prices are never sent by the client.** `unitPrice`/`taxRate` copied from the product when the order is created/edited (snapshot). `calculateLine` / `calculateOrderTotals` (rounded with `utils/roundMoney.js`).
+- Rule 2: available is checked on create/edit (early feedback) and enforced atomically on confirm.
+- Rule 4: confirm → `inventoryService.reserveStock` per line: atomic `WHERE quantity − reserved ≥ qty → reserved += qty`. Quantity doesn't change.
+- **All or nothing without transactions:** claim PENDING→CONFIRMED (`moveStatus`), reserve lines one by one; if one fails, `releaseStock` the lines already reserved, set status back to PENDING and `$pop` the history entry. Tested: second line fails → first released; two orders racing for the last 5 → exactly one wins; double-click → reserved once.
+- Reservations lower available, so reserving can trigger LOW_STOCK (Rule 7). Reserved units can't be stocked-out or transferred (they use available).
+- Only PENDING orders can be edited. Cancel from PENDING/CONFIRMED/PROCESSING/PACKED; releases reservation if the status was a reserving one (status read and claimed exactly, so release happens once).
+- `statusHistory` (who/when/note) is the tracking timeline; `utils/moveStatus.js` can now `$push` to it in the same atomic update.
+- Notifications: confirm → admins + other staff (NEW_ORDER); cancel by someone else → creator (ORDER_STATUS_CHANGED).
+- Audit: ORDER_CREATED / UPDATED / CONFIRMED (with reserved lines) / CANCELLED.
+- Roles: ADMIN + STAFF manage orders; INVENTORY_MANAGER views; SUPPLIER none.
+- Error codes: `ORDER_NOT_FOUND` 404, `INVALID_ORDER_STATUS` 409, `ORDER_CHANGED` 409, `INSUFFICIENT_STOCK` 400, `WAREHOUSE_HAS_OPEN_ORDERS` 409.
+
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
 - [x] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED) — `warehouseService.ensureCanDeactivate`.
 - [x] Step 11: cannot deactivate a warehouse with open purchase orders (`WAREHOUSE_HAS_OPEN_PURCHASES`).
 - [x] Step 11: cannot deactivate a supplier with open purchase orders (`SUPPLIER_HAS_OPEN_PURCHASES`).
-- [ ] Step 12: cannot deactivate a warehouse with open customer orders.
+- [x] Step 12: cannot deactivate a warehouse with open customer orders (`WAREHOUSE_HAS_OPEN_ORDERS`).
 
 ## Authentication Flow
 **Roles are admin-managed.** Public registration never accepts `role`/`status` (Zod strips unknown keys); new users are `STAFF` + `PENDING` until an admin approves them. The first admin comes from `npm run seed:admin` (values in `.env`).
@@ -321,10 +345,12 @@ _Step 17._
 | 8. Inventory (stock-in/out, low stock, history) | Done |
 | 9. Stock transfers | Done |
 | 10. Suppliers | Done |
-| 11. Purchases (requests, POs, supplier portal, receiving) | Done (321 tests passing) |
-| 12. Customer orders (reserve stock) | Next |
+| 11. Purchases (requests, POs, supplier portal, receiving) | Done |
+| 12. Customer orders (reserve stock) | Done (359 tests passing) |
+| 13. Order fulfillment (pick, pack, ship, deliver; Rule 5) | Next |
 
 ## Known Issues
+- While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.
 - A JWT copied before a plain logout stays valid until it expires (max 1 day). Password change/reset does revoke all tokens (tokenVersion). Acceptable for now; see Future Improvements.
 
 ## Future Improvements
