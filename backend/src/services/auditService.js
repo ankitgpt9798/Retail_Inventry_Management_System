@@ -21,4 +21,22 @@ const logAction = async ({ userId, action, entityType, entityId, oldValue, newVa
     }
 };
 
-module.exports = { logAction };
+// Compares two plain objects and keeps only the fields whose value changed.
+// getChanges({ price: 10, name: "A" }, { price: 12, name: "A" })
+//   → { oldValue: { price: 10 }, newValue: { price: 12 } }
+const getChanges = (before, after) => {
+    const oldValue = {};
+    const newValue = {};
+
+    for (const key of Object.keys(after)) {
+        // String() so that ObjectIds and numbers compare by their value
+        if (String(before[key]) !== String(after[key])) {
+            oldValue[key] = before[key];
+            newValue[key] = after[key];
+        }
+    }
+
+    return { oldValue, newValue };
+};
+
+module.exports = { logAction, getChanges };

@@ -114,6 +114,16 @@ User 1──* Notification,  User 1──* AuditLog
 | PUT | /api/users/:id/password | ADMIN | Reset password → user logged out everywhere |
 | DELETE | /api/users/:id | ADMIN | Soft delete = status INACTIVE |
 
+| GET | /api/categories?search=&status=&page=&limit= | ADMIN, MANAGER, STAFF | List categories (sorted by name) |
+| POST | /api/categories | ADMIN | Create category |
+| PUT | /api/categories/:id | ADMIN | Edit / reactivate |
+| DELETE | /api/categories/:id | ADMIN | Deactivate (blocked while active products use it) |
+| GET | /api/products?search=&category=&status=&brand=&minPrice=&maxPrice=&sort=&page=&limit= | ADMIN, MANAGER, STAFF | Search (name/SKU/barcode/brand), filter, sort (`newest`, `oldest`, `name`, `price_low`, `price_high`) |
+| GET | /api/products/:id | ADMIN, MANAGER, STAFF | One product with category name |
+| POST | /api/products | ADMIN | Create product |
+| PUT | /api/products/:id | ADMIN | Edit (changes audited field-by-field) |
+| DELETE | /api/products/:id | ADMIN | Deactivate |
+
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
 **Error codes so far:** `VALIDATION_ERROR` 422, `SUPPLIER_REQUIRED` 422, `INVALID_JSON` 400, `INVALID_ID` 400, `CANNOT_CHANGE_OWN_ROLE` 400, `CANNOT_CHANGE_OWN_STATUS` 400, `CANNOT_DEACTIVATE_SELF` 400, `INVALID_CURRENT_PASSWORD` 400, `SAME_PASSWORD` 400, `INVALID_CREDENTIALS` 401, `NOT_AUTHENTICATED` 401, `INVALID_TOKEN` 401, `TOKEN_EXPIRED` 401, `SESSION_REVOKED` 401, `USER_NOT_FOUND` 401/404, `ACCOUNT_PENDING` 403, `ACCOUNT_INACTIVE` 403, `FORBIDDEN` 403, `SUPPLIER_NOT_FOUND` 404, `NOT_FOUND` 404, `EMAIL_EXISTS` 409, `DUPLICATE_VALUE` 409, `SERVER_ERROR` 500.
@@ -126,6 +136,18 @@ User 1──* Notification,  User 1──* AuditLog
 - `tokenVersion` (User field, copied into the JWT) is increased on password change/reset; `protect` rejects tokens with an old version (`SESSION_REVOKED`).
 - Search text is regex-escaped (`utils/escapeRegex.js`) before use in MongoDB.
 - Audit actions: `USER_CREATED`, `USER_UPDATED` (old/new values), `USER_DEACTIVATED`, `USER_PASSWORD_RESET`, `PROFILE_UPDATED`, `PASSWORD_CHANGED` (never password values).
+
+## Product & Category Rules
+- Catalog is viewable by ADMIN, INVENTORY_MANAGER, STAFF (not SUPPLIER); only ADMIN changes it.
+- DELETE = soft delete (`INACTIVE`) for both.
+- Category names unique **ignoring case** (service check with `^name$` regex, `i` flag).
+- A category with ACTIVE products cannot be deactivated → 409 `CATEGORY_IN_USE`.
+- A product's category must exist and be ACTIVE on create, on moving category, and on reactivation.
+- SKU unique, stored uppercase (`lap-001` = `LAP-001`); barcode unique when present. `""` for barcode/imageUrl means "none" (stored as missing, so the sparse unique index allows many products without one). The DB unique index is a backstop: if the service check were skipped, MongoDB still returns 409 `DUPLICATE_VALUE`.
+- Prices: numbers only (not strings), ≥ 0, rounded to 2 decimals. Tax 0–100 %. Reorder level whole number ≥ 0 (default 10).
+- Image = `http(s)` URL only (`javascript:` etc. rejected). File upload is a possible later addition (multer).
+- Updates are audited with **only the changed fields** (`auditService.getChanges`); no change → no audit record.
+- Error codes: `CATEGORY_NOT_FOUND` 404, `CATEGORY_INACTIVE` 422, `CATEGORY_EXISTS` 409, `CATEGORY_IN_USE` 409, `PRODUCT_NOT_FOUND` 404, `SKU_EXISTS` 409, `BARCODE_EXISTS` 409.
 
 ## Authentication Flow
 **Roles are admin-managed.** Public registration never accepts `role`/`status` (Zod strips unknown keys); new users are `STAFF` + `PENDING` until an admin approves them. The first admin comes from `npm run seed:admin` (values in `.env`).
@@ -164,7 +186,8 @@ _Step 17._
 - Every module: Jest unit tests for services, Supertest API tests for routes, Postman collection.
 - Run backend tests: `cd backend && npm test`
 - `tests/unit`: no database (schema validation via `validateSync()`, later service logic)
-- `tests/integration`: real MongoDB, database `retail_inventory_test` (wiped each run, never the dev DB)
+- `tests/integration`: real MongoDB, databases `retail_inventory_test_<worker>` (wiped each run, never the dev DB)
+- Test files run **in parallel**; each Jest worker gets its own database (`JEST_WORKER_ID`), otherwise files would wipe each other's data mid-test.
 - `tests/api`: HTTP requests through Supertest (auth tests use the test DB)
 - `tests/helpers/testDb.js`: connect/clear/close the test DB. Passes `runtimeAdapters: { os }` to the driver because MongoDB driver 7.x loads `os` via `import()`, which fails inside Jest and causes "Missing required sub-document 'driver'".
 - `tests/setupEnv.js`: test-only JWT secret and NODE_ENV (tests never read `.env`)
@@ -177,8 +200,9 @@ _Step 17._
 | 2. MongoDB connection | Done |
 | 3. Database schemas | Done (13 models, unit + DB tests) |
 | 4. Authentication | Done |
-| 5. User & role management | Done (100 tests passing) |
-| 6. Products & categories | Next |
+| 5. User & role management | Done |
+| 6. Products & categories | Done (149 tests passing) |
+| 7. Warehouses | Next |
 
 ## Known Issues
 - A JWT copied before a plain logout stays valid until it expires (max 1 day). Password change/reset does revoke all tokens (tokenVersion). Acceptable for now; see Future Improvements.
