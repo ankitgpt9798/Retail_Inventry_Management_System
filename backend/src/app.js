@@ -8,6 +8,7 @@ const productRoutes = require("./routes/productRoutes");
 const warehouseRoutes = require("./routes/warehouseRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const transferRoutes = require("./routes/transferRoutes");
+const supplierRoutes = require("./routes/supplierRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
@@ -39,6 +40,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/warehouses", warehouseRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/transfers", transferRoutes);
+app.use("/api/suppliers", supplierRoutes);
 
 // These two must stay last: they handle anything the routes above didn't
 app.use(notFound);

@@ -279,6 +279,33 @@ describe("PUT /api/users/:id (approve, assign role, edit)", () => {
         expect(response.body.message).toBe("Provide at least one field to update");
     });
 
+    test("SUPPLIER user cannot be linked to an INACTIVE supplier", async () => {
+        const supplier = await Supplier.create({ name: "Closed Co", email: "x@closed.in", status: "INACTIVE" });
+
+        const response = await adminAgent.post("/api/users").send({
+            name: "New Supplier User", email: "new@closed.in", password: "Supplier123",
+            role: ROLES.SUPPLIER, supplier: supplier._id.toString()
+        });
+
+        expect(response.status).toBe(422);
+        expect(response.body.error).toBe("SUPPLIER_INACTIVE");
+    });
+
+    test("user of an inactive supplier: name can be fixed, but the user cannot be reactivated", async () => {
+        const supplier = await Supplier.create({ name: "Closed Co", email: "x@closed.in" });
+        const supplierUser = await createTestUser({
+            role: ROLES.SUPPLIER, email: "s@closed.in", supplier: supplier._id, status: USER_STATUS.INACTIVE
+        });
+        await Supplier.updateOne({ _id: supplier._id }, { status: "INACTIVE" });
+
+        const rename = await adminAgent.put(`/api/users/${supplierUser._id}`).send({ name: "Fixed Name" });
+        const reactivate = await adminAgent.put(`/api/users/${supplierUser._id}`).send({ status: USER_STATUS.ACTIVE });
+
+        expect(rename.status).toBe(200);
+        expect(reactivate.status).toBe(422);
+        expect(reactivate.body.error).toBe("SUPPLIER_INACTIVE");
+    });
+
     test("changing a SUPPLIER to STAFF removes the supplier link", async () => {
         const supplier = await Supplier.create({ name: "Acme Traders", email: "sales@acme.com" });
         const supplierUser = await createTestUser({ role: ROLES.SUPPLIER, email: "acme@shop.com", supplier: supplier._id });

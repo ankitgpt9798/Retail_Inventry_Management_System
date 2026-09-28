@@ -148,6 +148,11 @@ User 1──* Notification,  User 1──* AuditLog
 | PUT | /api/transfers/:id/dispatch | ADMIN, MANAGER | APPROVED → DISPATCHED, source −X |
 | PUT | /api/transfers/:id/receive | ADMIN, MANAGER | DISPATCHED → RECEIVED, destination +X |
 | PUT | /api/transfers/:id/cancel | ADMIN, MANAGER | REQUESTED/APPROVED → CANCELLED `{reason?}` |
+| GET | /api/suppliers?search=&city=&status=&page=&limit= | ADMIN, MANAGER | Search name/contact person/email, sorted by name |
+| GET | /api/suppliers/:id | ADMIN, MANAGER | Supplier + its SUPPLIER-role login `users` |
+| POST | /api/suppliers | ADMIN, MANAGER | Create |
+| PUT | /api/suppliers/:id | ADMIN, MANAGER | Edit / reactivate (INACTIVE also deactivates its logins) |
+| DELETE | /api/suppliers/:id | ADMIN, MANAGER | Deactivate + deactivate its active SUPPLIER logins |
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -214,10 +219,18 @@ REQUESTED ─approve─► APPROVED ─dispatch─► DISPATCHED ─receive─�
 - Audit: TRANSFER_REQUESTED / APPROVED / REJECTED / DISPATCHED / RECEIVED / CANCELLED.
 - Error codes: `TRANSFER_NOT_FOUND` 404, `INVALID_TRANSFER_STATUS` 409, `SELF_APPROVAL_NOT_ALLOWED` 403, `WAREHOUSE_HAS_OPEN_TRANSFERS` 409.
 
+## Supplier Rules
+- Managed by ADMIN and INVENTORY_MANAGER; STAFF and SUPPLIER users can't use `/api/suppliers` (SUPPLIER gets a PO portal in Step 11).
+- Email identifies a supplier: unique, stored lowercase (409 `SUPPLIER_EMAIL_EXISTS`). Names may repeat.
+- Phone: 7–20 chars of digits, spaces, `+`, `-`, brackets.
+- **Deactivating a supplier (DELETE or PUT status INACTIVE) also deactivates its ACTIVE SUPPLIER-role users** (each audited as USER_DEACTIVATED with the reason); the response includes `deactivatedUserCount`. Reactivating the supplier does NOT reactivate users — an admin does that per person.
+- SUPPLIER users can only be linked to an ACTIVE supplier (422 `SUPPLIER_INACTIVE`). The link is re-checked only when role/supplier changes or the user is reactivated, so other edits (e.g. name) still work for users of inactive suppliers.
+
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
 - [x] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED) — `warehouseService.ensureCanDeactivate`.
 - [ ] Step 11: cannot deactivate a warehouse with open purchase orders.
+- [ ] Step 11: cannot deactivate a supplier with open purchase orders.
 - [ ] Step 12: cannot deactivate a warehouse with open customer orders.
 
 ## Authentication Flow
@@ -275,8 +288,9 @@ _Step 17._
 | 6. Products & categories | Done |
 | 7. Warehouses | Done |
 | 8. Inventory (stock-in/out, low stock, history) | Done |
-| 9. Stock transfers | Done (255 tests passing) |
-| 10. Suppliers | Next |
+| 9. Stock transfers | Done |
+| 10. Suppliers | Done (278 tests passing) |
+| 11. Purchases (requests, POs, supplier portal, receiving) | Next |
 
 ## Known Issues
 - A JWT copied before a plain logout stays valid until it expires (max 1 day). Password change/reset does revoke all tokens (tokenVersion). Acceptable for now; see Future Improvements.

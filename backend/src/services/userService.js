@@ -3,7 +3,7 @@ const User = require("../models/User");
 const Supplier = require("../models/Supplier");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
-const { ROLES, USER_STATUS } = require("../utils/constants");
+const { ROLES, USER_STATUS, RECORD_STATUS } = require("../utils/constants");
 const { hashPassword } = require("./authService");
 const { logAction } = require("./auditService");
 
@@ -37,6 +37,9 @@ const resolveSupplierLink = async (role, supplierId) => {
     const supplier = await Supplier.findById(supplierId);
     if (!supplier) {
         throw new AppError(404, "SUPPLIER_NOT_FOUND", "Supplier not found");
+    }
+    if (supplier.status !== RECORD_STATUS.ACTIVE) {
+        throw new AppError(422, "SUPPLIER_INACTIVE", `Supplier "${supplier.name}" is inactive`);
     }
     return supplier._id;
 };
@@ -151,7 +154,16 @@ const updateUser = async (userId, updates, adminUser) => {
     if (updates.phone !== undefined) user.phone = updates.phone;
     if (updates.status !== undefined) user.status = updates.status;
     user.role = newRole;
-    user.supplier = await resolveSupplierLink(newRole, newSupplierId);
+
+    // Re-check the supplier link only when it matters: the role or link changes, or the
+    // user is being (re)activated. So a typo in the name of a user whose supplier is
+    // inactive can still be fixed, but that user can't be switched back on.
+    const isLinkRelevant = updates.role !== undefined
+        || updates.supplier !== undefined
+        || updates.status === USER_STATUS.ACTIVE;
+    if (isLinkRelevant) {
+        user.supplier = await resolveSupplierLink(newRole, newSupplierId);
+    }
 
     await user.save();
 
