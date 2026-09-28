@@ -178,6 +178,15 @@ User 1──* Notification,  User 1──* AuditLog
 | PUT | /api/notifications/:id/read | any logged-in user (own) | Mark one read (idempotent, keeps first `readAt`) |
 | PUT | /api/notifications/read-all | any logged-in user | Mark all mine read → `{ updatedCount }` |
 | DELETE | /api/notifications/:id | any logged-in user (own) | Delete (real delete) |
+| GET | /api/reports/dashboard | ADMIN, MANAGER, STAFF | 10 KPIs + 6 charts (last 6 months) |
+| GET | /api/reports/inventory?warehouse=&category= | ADMIN, MANAGER | Per product: qty, reserved, available, stock value |
+| GET | /api/reports/warehouses | ADMIN, MANAGER | Per warehouse: stock, utilization %, value |
+| GET | /api/reports/stock-movement?from=&to=&warehouse=&product= | ADMIN, MANAGER | Totals per type + monthly series |
+| GET | /api/reports/orders?from=&to=&warehouse= | ADMIN, MANAGER | Summary, byStatus, byMonth |
+| GET | /api/reports/purchases?from=&to=&supplier= | ADMIN, MANAGER | Summary, byStatus, byMonth |
+| GET | /api/reports/suppliers?from=&to= | ADMIN, MANAGER | Volume, value, fulfilment rate, open POs |
+| GET | /api/reports/low-stock?warehouse= | ADMIN, MANAGER | Shortage + quantity on order |
+| GET | /api/reports/product-performance?from=&to=&warehouse=&sortBy=&limit= | ADMIN, MANAGER | Top products (units or revenue) |
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -308,6 +317,32 @@ PENDING ─confirm (reserve)─► CONFIRMED ─► PROCESSING ─► PACKED ─
 - Index `{ recipient: 1, isRead: 1, createdAt: -1 }` serves list, filter, sort and unread count.
 - Types in use: LOW_STOCK, STOCK_TRANSFER, PURCHASE_UPDATE, PURCHASE_APPROVED, PURCHASE_RECEIVED, NEW_ORDER, ORDER_STATUS_CHANGED (SYSTEM_ALERT reserved). Each has a `link` to the frontend page (e.g. `/inventory/<id>`, `/orders/<id>`).
 
+## Reports & Analytics (Step 15)
+Read-only; built with MongoDB **aggregation pipelines** (`$match` → `$group` → `$lookup`/`$unwind` → `$project` → `$sort`/`$limit`). Plain JS only for small final touches (zero-filling months, merging lists, percentages).
+
+**Definitions**
+| Term | Meaning |
+|---|---|
+| Sales orders / revenue | status CONFIRMED…DELIVERED (not PENDING, not CANCELLED); revenue = Σ `totalAmount` (incl. tax) |
+| Units sold (product performance) | SHIPPED + DELIVERED orders only; name/SKU from the order-line snapshot |
+| Pending orders (KPI) | PENDING, CONFIRMED, PROCESSING, PACKED |
+| Completed orders | DELIVERED |
+| Total orders (KPI) | all except CANCELLED |
+| Pending purchases | PENDING, APPROVED, ORDERED, PARTIALLY_RECEIVED |
+| Ordered value | POs sent and not cancelled: ORDERED, PARTIALLY_RECEIVED, RECEIVED |
+| Received value | Σ quantityReceived × unitCost (incl. POs cancelled after partial receipt) |
+| Purchase trend (by month) | POs PENDING…RECEIVED (not DRAFT/REJECTED/CANCELLED) |
+| Stock value | quantity × product's **current** cost price |
+| Supplier fulfilment rate | units received ÷ units ordered on sent POs; `null` = no POs |
+| Low-stock shortage | reorderLevel − available; `onOrderQuantity` = outstanding on pending POs for that product + warehouse |
+| Low-stock products (KPI) | distinct products low in at least one warehouse |
+
+**Rules / traps**
+- `aggregate()` doesn't cast strings → filters use `new mongoose.Types.ObjectId(id)` (tested by mutation).
+- Time zone: `REPORT_UTC_OFFSET` (default `+05:30`). Months use `$dateToString … timezone`; `from`/`to` are `YYYY-MM-DD` days in that zone, `to` = end of day (`utils/reportDates.js`). Tested: 20:00 UTC on 30 Sep counts in October.
+- Monthly series are zero-filled (charts need every month). Default range: last 6 months.
+- Dashboard: STAFF may view (counts/trends only); detailed reports: ADMIN + INVENTORY_MANAGER.
+
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
 - [x] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED) — `warehouseService.ensureCanDeactivate`.
@@ -375,8 +410,9 @@ _Step 17._
 | 11. Purchases (requests, POs, supplier portal, receiving) | Done |
 | 12. Customer orders (reserve stock) | Done |
 | 13. Order fulfillment (pick, pack, ship, deliver; Rule 5) | Done |
-| 14. Notifications API (list, unread count, mark read) | Done (401 tests passing) |
-| 15. Reports & analytics (dashboard KPIs, reports, chart data) | Next |
+| 14. Notifications API (list, unread count, mark read) | Done |
+| 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done (433 tests passing) |
+| 16. Audit log API | Next |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.

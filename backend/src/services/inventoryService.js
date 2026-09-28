@@ -513,6 +513,7 @@ const updateReorderLevel = async (inventoryId, reorderLevel, userId) => {
 };
 
 module.exports = {
+    LOW_STOCK_CONDITION,
     findActiveProduct,
     findActiveWarehouse,
     getAvailable,
