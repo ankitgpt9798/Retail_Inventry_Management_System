@@ -41,9 +41,27 @@ RetailInventory/
 │   ├── tests/{unit,integration,api}
 │   ├── .env / .env.example
 │   └── package.json
-├── frontend/                       (Step 17)
+├── frontend/
+│   ├── src/
+│   │   ├── components/common/      Logo, Loader, ErrorAlert, PageHeader, TextField
+│   │   ├── components/layout/      PublicLayout/Header/Footer, AppLayout, AppNavbar, NotificationBell, UserMenu
+│   │   ├── pages/public/           Home, Features, About, Contact, Login, Register (+ content.js)
+│   │   ├── pages/app/              Dashboard, Profile, Forbidden
+│   │   ├── routes/                 AppRoutes (every URL), ProtectedRoute (login + role check)
+│   │   ├── services/api.js         the ONE Axios instance + 401 interceptor + getErrorMessage
+│   │   ├── store/                  store.js (setupStore), authSlice.js (the only global state)
+│   │   ├── hooks/                  useUnreadCount (bell, refreshes every 60 s)
+│   │   ├── utils/                  roles, navigation (PAGE_ACCESS + links), format, passwordSchema, siteInfo
+│   │   ├── test/                   setup.js, testUtils.jsx (renderWithProviders, authState)
+│   │   ├── App.jsx                 checks the session on load
+│   │   └── main.jsx                store + router + interceptor
+│   ├── index.html, vite.config.js (also Vitest config)
+│   ├── .env / .env.example         VITE_API_URL
+│   └── package.json
 └── docs/ARCHITECTURE.md
 ```
+
+**Run locally:** `cd backend && npm run dev` (port 3000) and `cd frontend && npm run dev` (port 5173) → open http://localhost:5173.
 
 ## Request Flow
 ```
@@ -354,6 +372,34 @@ Read-only; built with MongoDB **aggregation pipelines** (`$match` → `$group` �
 - Passwords/hashes never enter the audit log (tested by scanning all entries after register, login, change and reset).
 - Reading the audit log is not itself audited.
 
+## Frontend (Step 17)
+**Design:** a public website (Home, Features, About, Contact, Login, Request access) with a real header/footer, and a staff app with a **top navigation** (no admin sidebar), centred page width, page headers and cards. Custom DaisyUI theme `retailflow` in `src/index.css`. Product name in the UI: "RetailFlow".
+
+**Auth flow**
+```
+Page load → App → dispatch(fetchCurrentUser) → GET /auth/me → 200 user | 401 → null (not an error)
+Login form (RHF + Zod) → dispatch(loginUser) → POST /auth/login → cookie set by backend → user in Redux → navigate(from || home)
+Any later 401 (not /auth/me, /auth/login) → Axios interceptor → sessionExpired → ProtectedRoute → /login with message
+Password change → backend clears cookie → loggedOutWithMessage → /login
+```
+- Redux holds **only** `auth` (`user`, `isCheckingSession`, `sessionMessage`); everything else is `useState` in pages.
+- `ProtectedRoute`: checking → loader; no user → `/login` (remembers `from`); wrong role → Forbidden page. The backend still enforces every permission.
+- `utils/navigation.js` `PAGE_ACCESS` is used by BOTH the links and the routes, so they can't disagree. Links are added only when their page exists.
+- Frontend Zod rules (e.g. password) copy the backend's for quick feedback; the backend re-checks.
+- Supplier home page is `/profile` until the supplier portal pages exist (Part 17.5).
+
+**Frontend testing:** Vitest + React Testing Library + user-event; API mocked with `vi.mock("../services/api")` (real `getErrorMessage` kept); `renderWithProviders(ui, { preloadedState, route, path })`. Mount the component at its real `path` — mounting it at `*` makes redirecting components loop forever (found and fixed in 17.1). `services/api.test.js` tests the real interceptor with a fake Axios adapter. Run: `cd frontend && npm test`.
+
+**Frontend build parts**
+| Part | Scope | Status |
+|---|---|---|
+| 17.1 | Setup, API client, auth store, public site, login/register, protected routes, app layout (nav, bell, user menu), dashboard KPIs, profile | Done (38 tests) |
+| 17.2 | Products, categories, warehouses | Next |
+| 17.3 | Inventory, stock-in/out, low stock, transfers | |
+| 17.4 | Orders + fulfillment | |
+| 17.5 | Suppliers, purchases, supplier portal | |
+| 17.6 | Dashboard charts, reports, notifications page, users, audit log, code-splitting | |
+
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
 - [x] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED) — `warehouseService.ensureCanDeactivate`.
@@ -424,7 +470,7 @@ _Step 17._
 | 14. Notifications API (list, unread count, mark read) | Done |
 | 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done |
 | 16. Audit log API | Done (450 tests passing) — **backend complete** |
-| 17. Frontend (public website + staff app) | Next |
+| 17. Frontend (public website + staff app) | In progress — Part 17.1 done (38 frontend tests) |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.
