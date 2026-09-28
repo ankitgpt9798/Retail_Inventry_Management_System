@@ -123,6 +123,11 @@ User 1──* Notification,  User 1──* AuditLog
 | POST | /api/products | ADMIN | Create product |
 | PUT | /api/products/:id | ADMIN | Edit (changes audited field-by-field) |
 | DELETE | /api/products/:id | ADMIN | Deactivate |
+| GET | /api/warehouses?search=&city=&status=&manager=&page=&limit= | ADMIN, MANAGER, STAFF | Search name/code/city, filter, sorted by name |
+| GET | /api/warehouses/:id | ADMIN, MANAGER, STAFF | Warehouse + manager + `stockSummary` (totalQuantity, reservedQuantity, availableQuantity, productCount, capacityUsedPercent) |
+| POST | /api/warehouses | ADMIN, MANAGER | Create |
+| PUT | /api/warehouses/:id | ADMIN, MANAGER | Edit, assign manager (`null` removes), reactivate |
+| DELETE | /api/warehouses/:id | ADMIN, MANAGER | Deactivate (blocked while it holds stock) |
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -148,6 +153,20 @@ User 1──* Notification,  User 1──* AuditLog
 - Image = `http(s)` URL only (`javascript:` etc. rejected). File upload is a possible later addition (multer).
 - Updates are audited with **only the changed fields** (`auditService.getChanges`); no change → no audit record.
 - Error codes: `CATEGORY_NOT_FOUND` 404, `CATEGORY_INACTIVE` 422, `CATEGORY_EXISTS` 409, `CATEGORY_IN_USE` 409, `PRODUCT_NOT_FOUND` 404, `SKU_EXISTS` 409, `BARCODE_EXISTS` 409.
+
+## Warehouse Rules
+- View: ADMIN, MANAGER, STAFF. Manage: ADMIN, INVENTORY_MANAGER (spec: "Manager can manage warehouses").
+- Code unique, stored uppercase, letters/numbers/dashes. Capacity required, whole number ≥ 1 (model changed from "default 0").
+- Manager must exist (404 `MANAGER_NOT_FOUND`), be ACTIVE and be INVENTORY_MANAGER or ADMIN (422 `INVALID_MANAGER`).
+- Capacity cannot be set below current stock (409 `CAPACITY_BELOW_STOCK`).
+- Cannot deactivate while it holds stock, via DELETE or PUT status (409 `WAREHOUSE_HAS_STOCK`). Inventory rows with quantity 0 don't count.
+- `warehouseService.getStockTotals(warehouseId)` sums the warehouse's Inventory rows; reused by inventory (capacity check on stock-in).
+
+**Pending checks (add in the step that builds each module):**
+- [ ] Step 8: stock-in/out/transfers refuse INACTIVE warehouses; stock-in refuses to exceed capacity.
+- [ ] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED).
+- [ ] Step 11: cannot deactivate a warehouse with open purchase orders.
+- [ ] Step 12: cannot deactivate a warehouse with open customer orders.
 
 ## Authentication Flow
 **Roles are admin-managed.** Public registration never accepts `role`/`status` (Zod strips unknown keys); new users are `STAFF` + `PENDING` until an admin approves them. The first admin comes from `npm run seed:admin` (values in `.env`).
@@ -201,8 +220,9 @@ _Step 17._
 | 3. Database schemas | Done (13 models, unit + DB tests) |
 | 4. Authentication | Done |
 | 5. User & role management | Done |
-| 6. Products & categories | Done (149 tests passing) |
-| 7. Warehouses | Next |
+| 6. Products & categories | Done |
+| 7. Warehouses | Done (178 tests passing) |
+| 8. Inventory (stock-in/out, low stock, history) | Next |
 
 ## Known Issues
 - A JWT copied before a plain logout stays valid until it expires (max 1 day). Password change/reset does revoke all tokens (tokenVersion). Acceptable for now; see Future Improvements.

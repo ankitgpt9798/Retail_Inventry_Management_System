@@ -33,8 +33,8 @@ const warehouseSchema = new mongoose.Schema(
         // Maximum number of units the warehouse can hold
         capacity: {
             type: Number,
-            default: 0,
-            min: [0, "Capacity cannot be negative"]
+            required: [true, "Capacity is required"],
+            min: [1, "Capacity must be at least 1"]
         },
         manager: {
             type: mongoose.Schema.Types.ObjectId,
