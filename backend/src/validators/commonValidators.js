@@ -23,4 +23,12 @@ const paginationSchema = {
 // ?search=ravi — optional free text used for "contains" searches
 const searchSchema = z.string().trim().max(100, "Search text is too long").optional();
 
-module.exports = { objectIdSchema, paginationSchema, searchSchema };
+// ?lowStock=true / ?isRead=false — accept only the words "true"/"false".
+// (z.coerce.boolean() would turn the text "false" into true, because any non-empty text is truthy)
+const booleanFlagSchema = (name) =>
+    z
+        .enum(["true", "false"], { error: `${name} must be true or false` })
+        .transform((value) => value === "true")
+        .optional();
+
+module.exports = { objectIdSchema, paginationSchema, searchSchema, booleanFlagSchema };

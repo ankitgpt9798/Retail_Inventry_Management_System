@@ -173,6 +173,11 @@ User 1──* Notification,  User 1──* AuditLog
 | DELETE | /api/orders/:id | ADMIN, STAFF | Cancel `{reason?}` (kept; reservation released) — only before SHIPPED |
 | PUT | /api/orders/:id/status | ADMIN, STAFF | Fulfillment `{status: PROCESSING/PACKED/SHIPPED/DELIVERED, note?, carrier?, trackingNumber?}` |
 | GET | /api/orders/fulfillment-queue | ADMIN, MANAGER, STAFF | Counts per stage `{CONFIRMED, PROCESSING, PACKED, SHIPPED}` |
+| GET | /api/notifications?isRead=&type=&page=&limit= | any logged-in user | My notifications, newest first, + `unreadCount` |
+| GET | /api/notifications/unread-count | any logged-in user | `{ unreadCount }` for the bell badge |
+| PUT | /api/notifications/:id/read | any logged-in user (own) | Mark one read (idempotent, keeps first `readAt`) |
+| PUT | /api/notifications/read-all | any logged-in user | Mark all mine read → `{ updatedCount }` |
+| DELETE | /api/notifications/:id | any logged-in user (own) | Delete (real delete) |
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -293,6 +298,16 @@ PENDING ─confirm (reserve)─► CONFIRMED ─► PROCESSING ─► PACKED ─
 - Every step appends to `statusHistory` (who/when/note) = order tracking. Creator notified (ORDER_STATUS_CHANGED) when someone else moves the order; shipping message includes carrier + tracking.
 - Audit: ORDER_STATUS_UPDATED, ORDER_SHIPPED.
 
+## Notifications (Step 14)
+- **Created** by `notificationService.notifyRoles(roles, {...}, excludeUserId)` / `notifyUser(userId, {...})` (since Step 8). One document per recipient, so each person has their own read state. Creation failures are logged, never break the business action.
+- **Read** through `/api/notifications` — only `protect` (every role, incl. SUPPLIER, has an inbox); no `authorize`.
+- **Ownership is part of every query:** `{ recipient: req.user._id, ... }` in find / count / findOne / updateMany / deleteOne. Someone else's notification → 404 `NOTIFICATION_NOT_FOUND` (tested, including a mutation check that removed the filter).
+- The user id always comes from `req.user` (verified cookie), never from URL/body.
+- `isRead` filter: `if (isRead !== undefined)` — not `if (isRead)`, which would ignore `isRead=false` (tested).
+- Delete is a real delete (personal messages, not business records); reading/deleting is not audited.
+- Index `{ recipient: 1, isRead: 1, createdAt: -1 }` serves list, filter, sort and unread count.
+- Types in use: LOW_STOCK, STOCK_TRANSFER, PURCHASE_UPDATE, PURCHASE_APPROVED, PURCHASE_RECEIVED, NEW_ORDER, ORDER_STATUS_CHANGED (SYSTEM_ALERT reserved). Each has a `link` to the frontend page (e.g. `/inventory/<id>`, `/orders/<id>`).
+
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
 - [x] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED) — `warehouseService.ensureCanDeactivate`.
@@ -359,8 +374,9 @@ _Step 17._
 | 10. Suppliers | Done |
 | 11. Purchases (requests, POs, supplier portal, receiving) | Done |
 | 12. Customer orders (reserve stock) | Done |
-| 13. Order fulfillment (pick, pack, ship, deliver; Rule 5) | Done (379 tests passing) |
-| 14. Notifications API (list, unread count, mark read) | Next |
+| 13. Order fulfillment (pick, pack, ship, deliver; Rule 5) | Done |
+| 14. Notifications API (list, unread count, mark read) | Done (401 tests passing) |
+| 15. Reports & analytics (dashboard KPIs, reports, chart data) | Next |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.

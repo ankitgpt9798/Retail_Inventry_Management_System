@@ -1,6 +1,6 @@
 const { z } = require("zod");
 const { STOCK_TRANSACTION_TYPE } = require("../utils/constants");
-const { objectIdSchema, paginationSchema, searchSchema } = require("./commonValidators");
+const { objectIdSchema, paginationSchema, searchSchema, booleanFlagSchema } = require("./commonValidators");
 
 const quantitySchema = z
     .number({ error: "Quantity must be a number" })
@@ -34,14 +34,6 @@ const reorderLevelSchema = z.object({
         .min(0, "Reorder level cannot be negative")
         .max(1000000, "Reorder level is too large")
 });
-
-// ?lowStock=true — accept only the words "true"/"false".
-// (z.coerce.boolean() would turn the text "false" into true, because any non-empty text is truthy)
-const booleanFlagSchema = (name) =>
-    z
-        .enum(["true", "false"], { error: `${name} must be true or false` })
-        .transform((value) => value === "true")
-        .optional();
 
 // GET /api/inventory?warehouse=&product=&search=&lowStock=&page=&limit=
 const listInventoryQuerySchema = z.object({
