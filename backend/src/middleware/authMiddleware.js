@@ -1,0 +1,42 @@
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const AppError = require("../utils/AppError");
+const { USER_STATUS } = require("../utils/constants");
+
+// Put this on any route that requires a logged-in user.
+// Flow: read cookie → verify JWT → load user from DB → attach to req.user → next()
+const protect = async (req, res, next) => {
+    // 1. cookie-parser has already turned the Cookie header into req.cookies
+    const token = req.cookies?.token;
+    if (!token) {
+        throw new AppError(401, "NOT_AUTHENTICATED", "Please log in to continue");
+    }
+
+    // 2. jwt.verify checks the signature (not forged/edited) and the expiry date
+    let decoded;
+    try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+    }
+    catch (error) {
+        if (error.name === "TokenExpiredError") {
+            throw new AppError(401, "TOKEN_EXPIRED", "Your session has expired. Please log in again");
+        }
+        throw new AppError(401, "INVALID_TOKEN", "Invalid login session. Please log in again");
+    }
+
+    // 3. Load the user fresh from the database, so a deleted or deactivated
+    //    account is blocked immediately, even though its token is still valid
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+        throw new AppError(401, "USER_NOT_FOUND", "The account for this session no longer exists");
+    }
+    if (user.status !== USER_STATUS.ACTIVE) {
+        throw new AppError(403, "ACCOUNT_INACTIVE", "Your account is not active");
+    }
+
+    // 4. Controllers (and authorize) can now use req.user
+    req.user = user;
+    next();
+};
+
+module.exports = { protect };

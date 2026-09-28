@@ -7,21 +7,62 @@ const notFound = (req, res, next) => {
     });
 };
 
-// Every error thrown in a route/controller/service ends up here,
-// so all error responses have the same shape.
+// Every error thrown in a route/middleware/controller/service ends up here,
+// so all error responses have the same shape: { success, message, error }.
 const errorHandler = (err, req, res, next) => {
-    const statusCode = err.statusCode || 500;
+    let statusCode = 500;
+    let errorCode = "SERVER_ERROR";
+    let message = "Something went wrong on the server";
+    let errors;
 
-    // Log unexpected errors for the developer; don't send internals to the user
+    if (err.statusCode && err.errorCode) {
+        // Our own AppError: already has everything we need
+        statusCode = err.statusCode;
+        errorCode = err.errorCode;
+        message = err.message;
+        errors = err.errors;
+    }
+    else if (err.name === "ValidationError") {
+        // Mongoose schema validation failed, e.g. a negative price
+        statusCode = 422;
+        errorCode = "VALIDATION_ERROR";
+        errors = Object.values(err.errors).map((fieldError) => ({
+            field: fieldError.path,
+            message: fieldError.message
+        }));
+        message = errors[0].message;
+    }
+    else if (err.name === "CastError") {
+        // An invalid id in the URL, e.g. /api/products/abc
+        statusCode = 400;
+        errorCode = "INVALID_ID";
+        message = `Invalid ${err.path}: ${err.value}`;
+    }
+    else if (err.code === 11000) {
+        // MongoDB unique index violation, e.g. an email that already exists
+        const field = Object.keys(err.keyValue || {})[0] || "value";
+        statusCode = 409;
+        errorCode = "DUPLICATE_VALUE";
+        message = `${field} already exists`;
+    }
+    else if (err.type === "entity.parse.failed") {
+        // The request body was not valid JSON
+        statusCode = 400;
+        errorCode = "INVALID_JSON";
+        message = "Request body is not valid JSON";
+    }
+
+    // Log unexpected errors for the developer; the user only sees a generic message
     if (statusCode === 500) {
         console.error(err);
     }
 
-    res.status(statusCode).json({
-        success: false,
-        message: statusCode === 500 ? "Something went wrong on the server" : err.message,
-        error: err.errorCode || "SERVER_ERROR"
-    });
+    const response = { success: false, message, error: errorCode };
+    if (errors) {
+        response.errors = errors;
+    }
+
+    res.status(statusCode).json(response);
 };
 
 module.exports = { notFound, errorHandler };

@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { ROLES, RECORD_STATUS } = require("../utils/constants");
+const { ROLES, USER_STATUS } = require("../utils/constants");
 
 const userSchema = new mongoose.Schema(
     {
@@ -30,10 +30,11 @@ const userSchema = new mongoose.Schema(
             enum: Object.values(ROLES),
             default: ROLES.STAFF
         },
+        // Users created by an admin are ACTIVE; self-registered users are set to PENDING
         status: {
             type: String,
-            enum: Object.values(RECORD_STATUS),
-            default: RECORD_STATUS.ACTIVE
+            enum: Object.values(USER_STATUS),
+            default: USER_STATUS.ACTIVE
         },
         phone: {
             type: String,

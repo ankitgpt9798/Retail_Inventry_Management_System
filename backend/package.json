@@ -8,17 +8,25 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest --runInBand",
-    "db:sync": "node src/utils/syncIndexes.js"
+    "db:sync": "node src/utils/syncIndexes.js",
+    "seed:admin": "node src/utils/seedAdmin.js"
   },
   "jest": {
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "setupFiles": [
+      "<rootDir>/tests/setupEnv.js"
+    ]
   },
   "license": "ISC",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^18.0.4",
     "express": "^5.2.1",
-    "mongoose": "^9.10.2"
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "jest": "^30.5.2",

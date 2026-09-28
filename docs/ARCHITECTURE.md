@@ -101,9 +101,42 @@ User 1──* Notification,  User 1──* AuditLog
 | Method | URL | Auth | Purpose |
 |---|---|---|---|
 | GET | /api/health | none | Check server is running |
+| POST | /api/auth/register | none | Self-register → always STAFF + PENDING, no cookie |
+| POST | /api/auth/login | none | Verify password → set `token` HTTP-only cookie |
+| POST | /api/auth/logout | none | Clear the cookie |
+| GET | /api/auth/me | logged in | Current user (frontend calls on page load) |
+
+**Error codes so far:** `VALIDATION_ERROR` 422, `INVALID_JSON` 400, `INVALID_ID` 400, `INVALID_CREDENTIALS` 401, `NOT_AUTHENTICATED` 401, `INVALID_TOKEN` 401, `TOKEN_EXPIRED` 401, `USER_NOT_FOUND` 401, `ACCOUNT_PENDING` 403, `ACCOUNT_INACTIVE` 403, `FORBIDDEN` 403, `EMAIL_EXISTS` 409, `DUPLICATE_VALUE` 409, `NOT_FOUND` 404, `SERVER_ERROR` 500.
 
 ## Authentication Flow
-_Step 4._
+**Roles are admin-managed.** Public registration never accepts `role`/`status` (Zod strips unknown keys); new users are `STAFF` + `PENDING` until an admin approves them. The first admin comes from `npm run seed:admin` (values in `.env`).
+
+User statuses: `PENDING` (registered, awaiting approval) → `ACTIVE` → `INACTIVE` (deactivated).
+
+```
+Login:     body → validate(loginSchema) → authService.loginUser
+           → findOne(email).select("+password") → bcrypt.compare
+           → status must be ACTIVE → jwt.sign({ userId }, JWT_SECRET, 1d)
+           → controller: res.cookie("token", jwt, { httpOnly, sameSite:"strict", secure in prod })
+           → audit "LOGIN"
+Protected: cookie-parser → protect (verify JWT → User.findById → must be ACTIVE → req.user)
+           → authorize(...roles) (403 if role not allowed) → controller
+Logout:    res.clearCookie("token")
+```
+- JWT holds only `userId`; role/status are read from DB on every request, so deactivation or role change takes effect immediately.
+- Same 401 message for unknown email and wrong password (no account enumeration). Status is checked only after the password is correct.
+- Password rules: 8–64 chars, at least one letter and one number.
+
+| File | Responsibility |
+|---|---|
+| `validators/authValidators.js` | Zod schemas (register, login, password) |
+| `middleware/validationMiddleware.js` | `validate(schema)` → 422 |
+| `services/authService.js` | hash, register, login, createToken |
+| `services/auditService.js` | `logAction()` — never breaks the main action |
+| `middleware/authMiddleware.js` | `protect` |
+| `middleware/roleMiddleware.js` | `authorize(...roles)` |
+| `controllers/authController.js` | cookie handling + JSON responses |
+| `utils/AppError.js` | error with statusCode + errorCode |
 
 ## Frontend Pages
 _Step 17._
@@ -113,7 +146,9 @@ _Step 17._
 - Run backend tests: `cd backend && npm test`
 - `tests/unit`: no database (schema validation via `validateSync()`, later service logic)
 - `tests/integration`: real MongoDB, database `retail_inventory_test` (wiped each run, never the dev DB)
-- `tests/api`: HTTP requests through Supertest
+- `tests/api`: HTTP requests through Supertest (auth tests use the test DB)
+- `tests/helpers/testDb.js`: connect/clear/close the test DB. Passes `runtimeAdapters: { os }` to the driver because MongoDB driver 7.x loads `os` via `import()`, which fails inside Jest and causes "Missing required sub-document 'driver'".
+- `tests/setupEnv.js`: test-only JWT secret and NODE_ENV (tests never read `.env`)
 
 ## Progress
 | Step | Status |
@@ -121,10 +156,12 @@ _Step 17._
 | 1. Project setup | Done |
 | 2. MongoDB connection | Done |
 | 3. Database schemas | Done (13 models, unit + DB tests) |
-| 4. Authentication | Next |
+| 4. Authentication | Done (53 tests passing) |
+| 5. User & role management | Next |
 
 ## Known Issues
-- None yet.
+- A JWT copied before logout stays valid until it expires (max 1 day). Acceptable for now; see Future Improvements.
 
 ## Future Improvements
+- Redis token blocklist on logout; rate limiting on /login (brute-force protection).
 - Docker, CI/CD, cloud deployment (explicitly out of scope for now).

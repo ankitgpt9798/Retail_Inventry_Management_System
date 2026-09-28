@@ -8,7 +8,14 @@ const ROLES = {
     SUPPLIER: "SUPPLIER"
 };
 
-// Used by users, products, categories, warehouses and suppliers
+// Users have an extra PENDING state: self-registered accounts wait for admin approval
+const USER_STATUS = {
+    PENDING: "PENDING",
+    ACTIVE: "ACTIVE",
+    INACTIVE: "INACTIVE"
+};
+
+// Used by products, categories, warehouses and suppliers
 const RECORD_STATUS = {
     ACTIVE: "ACTIVE",
     INACTIVE: "INACTIVE"
@@ -72,6 +79,7 @@ const NOTIFICATION_TYPE = {
 
 module.exports = {
     ROLES,
+    USER_STATUS,
     RECORD_STATUS,
     TRANSFER_STATUS,
     ORDER_STATUS,

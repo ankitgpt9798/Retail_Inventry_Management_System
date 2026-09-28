@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const authRoutes = require("./routes/authRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
@@ -12,6 +14,9 @@ app.use(cors({
 
 app.use(express.json());
 
+// Reads the Cookie header and fills req.cookies (needed to read the login token)
+app.use(cookieParser());
+
 // Simple check that the server is running
 app.get("/api/health", (req, res) => {
     res.status(200).json({
@@ -21,7 +26,7 @@ app.get("/api/health", (req, res) => {
     });
 });
 
-// Feature routes will be added here, e.g. app.use("/api/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 
 // These two must stay last: they handle anything the routes above didn't
 app.use(notFound);
