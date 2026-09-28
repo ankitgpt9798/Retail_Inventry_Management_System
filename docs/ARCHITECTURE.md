@@ -128,6 +128,16 @@ User 1──* Notification,  User 1──* AuditLog
 | POST | /api/warehouses | ADMIN, MANAGER | Create |
 | PUT | /api/warehouses/:id | ADMIN, MANAGER | Edit, assign manager (`null` removes), reactivate |
 | DELETE | /api/warehouses/:id | ADMIN, MANAGER | Deactivate (blocked while it holds stock) |
+| GET | /api/inventory?warehouse=&product=&search=&lowStock=&page=&limit= | ADMIN, MANAGER, STAFF | Inventory rows (warehouse-wise view with `?warehouse=`) |
+| GET | /api/inventory/product/:productId | ADMIN, MANAGER, STAFF | Product-wise: each warehouse + `totals` {quantity, reservedQuantity, availableQuantity} |
+| GET | /api/inventory/low-stock?warehouse= | ADMIN, MANAGER, STAFF | Rows where available < reorderLevel |
+| GET | /api/inventory/transactions?product=&warehouse=&type=&from=&to= | ADMIN, MANAGER, STAFF | Stock movement history, newest first |
+| GET | /api/inventory/:id | ADMIN, MANAGER, STAFF | One inventory row |
+| POST | /api/inventory/stock-in | ADMIN, MANAGER | `{product, warehouse, quantity, note?}` |
+| POST | /api/inventory/stock-out | ADMIN, MANAGER | `{product, warehouse, quantity, note}` (reason required) |
+| PUT | /api/inventory/:id/reorder-level | ADMIN, MANAGER | Per-warehouse reorder level |
+
+`POST /api/inventory/transfer` from the spec is intentionally not built: transfers use the approval workflow in `/api/transfers` (Step 9) so there is one way to move stock.
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -162,8 +172,21 @@ User 1──* Notification,  User 1──* AuditLog
 - Cannot deactivate while it holds stock, via DELETE or PUT status (409 `WAREHOUSE_HAS_STOCK`). Inventory rows with quantity 0 don't count.
 - `warehouseService.getStockTotals(warehouseId)` sums the warehouse's Inventory rows; reused by inventory (capacity check on stock-in).
 
+## Inventory Rules (core)
+- One Inventory row per (product, warehouse) — unique index. Created on first stock-in (upsert), copying the product's reorderLevel (`$setOnInsert`); each warehouse can then change its own level.
+- Rule 1: `availableQuantity = quantity - reservedQuantity` (model virtual + `getAvailable()`).
+- Rule 3 stock-in: product and warehouse must be ACTIVE; warehouse total + quantity ≤ capacity (409 `CAPACITY_EXCEEDED`).
+- Stock-out takes only **available** units; inactive products may still be removed. Reason (`note`) required for manual stock-out.
+- **Concurrency:** stock-out is ONE atomic `findOneAndUpdate` with the condition `available ≥ quantity` (`$expr`) and `$inc: -quantity`. If it returns null → 400 `INSUFFICIENT_STOCK`. Proven by a test: 10 parallel requests for 5 units → exactly 5 succeed. (A read-check-save version lets all 10 succeed.)
+- Rule 7: low stock = available < reorderLevel. Alert (Notification LOW_STOCK to every ACTIVE ADMIN + INVENTORY_MANAGER) only when stock **crosses** below the level (`becameLowStock(before, after)`), also when a reorder-level change causes it.
+- Rules 8 + 9: every change → StockTransaction (quantityBefore/After, type, referenceType/Id, performedBy) + AuditLog.
+- `addStock()` / `removeStock()` take `type`, `referenceType`, `referenceId` so transfers (TRANSFER_IN/OUT), purchase receiving and orders reuse the same rules.
+- Known limitation: the capacity check reads totals first, then updates — two simultaneous stock-ins could together overshoot capacity slightly. Acceptable for this project (no multi-document transactions on a standalone MongoDB).
+- `?lowStock=` accepts only "true"/"false" (`z.coerce.boolean()` would turn "false" into true).
+- Error codes: `PRODUCT_INACTIVE` 422, `WAREHOUSE_INACTIVE` 422, `WAREHOUSE_NOT_FOUND` 404, `INVENTORY_NOT_FOUND` 404, `CAPACITY_EXCEEDED` 409, `INSUFFICIENT_STOCK` 400.
+
 **Pending checks (add in the step that builds each module):**
-- [ ] Step 8: stock-in/out/transfers refuse INACTIVE warehouses; stock-in refuses to exceed capacity.
+- [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
 - [ ] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED).
 - [ ] Step 11: cannot deactivate a warehouse with open purchase orders.
 - [ ] Step 12: cannot deactivate a warehouse with open customer orders.
@@ -221,8 +244,9 @@ _Step 17._
 | 4. Authentication | Done |
 | 5. User & role management | Done |
 | 6. Products & categories | Done |
-| 7. Warehouses | Done (178 tests passing) |
-| 8. Inventory (stock-in/out, low stock, history) | Next |
+| 7. Warehouses | Done |
+| 8. Inventory (stock-in/out, low stock, history) | Done (223 tests passing) |
+| 9. Stock transfers | Next |
 
 ## Known Issues
 - A JWT copied before a plain logout stays valid until it expires (max 1 day). Password change/reset does revoke all tokens (tokenVersion). Acceptable for now; see Future Improvements.
