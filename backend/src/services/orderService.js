@@ -12,13 +12,37 @@ const {
     CANCELLABLE_ORDER_STATUSES,
     NOTIFICATION_TYPE
 } = require("../utils/constants");
-const { findActiveProduct, findActiveWarehouse, reserveStock, releaseStock } = require("./inventoryService");
+const {
+    findActiveProduct,
+    findActiveWarehouse,
+    reserveStock,
+    releaseStock,
+    shipReservedStock,
+    undoShippedStock
+} = require("./inventoryService");
 const { getNextCode } = require("./counterService");
 const { logAction } = require("./auditService");
 const { notifyRoles, notifyUser } = require("./notificationService");
 
 // Who is told about newly confirmed orders (the people who pick and pack them)
 const NEW_ORDER_ROLES = [ROLES.ADMIN, ROLES.STAFF];
+
+// Fulfillment steps: each status has exactly ONE allowed previous status (no skipping).
+// Read as: "to become PACKED, an order must currently be PROCESSING".
+const PREVIOUS_STATUS = {
+    [ORDER_STATUS.PROCESSING]: ORDER_STATUS.CONFIRMED,
+    [ORDER_STATUS.PACKED]: ORDER_STATUS.PROCESSING,
+    [ORDER_STATUS.SHIPPED]: ORDER_STATUS.PACKED,
+    [ORDER_STATUS.DELIVERED]: ORDER_STATUS.SHIPPED
+};
+
+// The stages shown in the fulfillment queue
+const FULFILLMENT_STAGES = [
+    ORDER_STATUS.CONFIRMED,
+    ORDER_STATUS.PROCESSING,
+    ORDER_STATUS.PACKED,
+    ORDER_STATUS.SHIPPED
+];
 
 // ---------- Pure helpers (no database; unit-tested) ----------
 
@@ -379,6 +403,121 @@ const cancelOrder = async (orderId, reason, currentUser) => {
     return getOrderWithItems(cancelled);
 };
 
+// ---------- Fulfillment ----------
+
+// GET /api/orders/fulfillment-queue — how many orders wait at each stage
+const getFulfillmentQueue = async () => {
+    const queue = {};
+    for (const stage of FULFILLMENT_STAGES) {
+        queue[stage] = await Order.countDocuments({ status: stage });
+    }
+    return queue;
+};
+
+// Rule 5 for every line, all or nothing: if a line fails, the lines already
+// shipped are put back (recorded as ADJUSTMENT, because history is never deleted)
+const shipOrderLines = async (order, items, currentUser) => {
+    const shippedLines = [];
+    try {
+        for (const item of items) {
+            await shipReservedStock({
+                productId: item.product,
+                warehouseId: order.warehouse,
+                quantity: item.quantity,
+                userId: currentUser._id,
+                referenceId: order._id,
+                note: `Shipped on ${order.orderNumber}`
+            });
+            shippedLines.push(item);
+        }
+    }
+    catch (error) {
+        for (const item of shippedLines) {
+            await undoShippedStock({
+                productId: item.product,
+                warehouseId: order.warehouse,
+                quantity: item.quantity,
+                userId: currentUser._id,
+                referenceId: order._id,
+                note: `Shipment of ${order.orderNumber} rolled back`
+            });
+        }
+        throw error;
+    }
+};
+
+// PUT /api/orders/:id/status  { status, note?, carrier?, trackingNumber? }
+// CONFIRMED → PROCESSING → PACKED → SHIPPED (Rule 5) → DELIVERED
+const updateOrderStatus = async (orderId, { status, note, carrier, trackingNumber }, currentUser) => {
+    const requiredStatus = PREVIOUS_STATUS[status];
+    const before = await findOrderOrFail(orderId);
+
+    if (before.status !== requiredStatus) {
+        throw new AppError(
+            409,
+            "INVALID_ORDER_STATUS",
+            `Order ${before.orderNumber} is ${before.status}; it must be ${requiredStatus} to mark it ${status}`
+        );
+    }
+
+    const extraFields = status === ORDER_STATUS.SHIPPED ? { carrier, trackingNumber } : {};
+
+    // 1. Claim the status change (atomic) — a double-click can't ship twice
+    const updated = await moveStatus(
+        Order,
+        before._id,
+        [requiredStatus],
+        status,
+        extraFields,
+        { statusHistory: historyEntry(status, currentUser._id, note) }
+    );
+    if (!updated) {
+        throw new AppError(409, "ORDER_CHANGED", `Order ${before.orderNumber} was changed by someone else. Reload it and try again.`);
+    }
+
+    // 2. Shipping: the goods leave the warehouse (Rule 5)
+    const items = await OrderItem.find({ order: updated._id });
+    if (status === ORDER_STATUS.SHIPPED) {
+        try {
+            await shipOrderLines(updated, items, currentUser);
+        }
+        catch (error) {
+            // 3. Put the order back to PACKED and remove the SHIPPED history entry
+            await Order.updateOne(
+                { _id: updated._id },
+                {
+                    $set: { status: ORDER_STATUS.PACKED },
+                    $unset: { carrier: 1, trackingNumber: 1 },
+                    $pop: { statusHistory: 1 }
+                }
+            );
+            throw error;
+        }
+    }
+
+    await logAction({
+        userId: currentUser._id,
+        action: status === ORDER_STATUS.SHIPPED ? "ORDER_SHIPPED" : "ORDER_STATUS_UPDATED",
+        entityType: "Order",
+        entityId: updated._id,
+        oldValue: { status: requiredStatus },
+        newValue: { status, ...extraFields },
+        metadata: { orderNumber: updated.orderNumber, note }
+    });
+
+    if (!updated.createdBy.equals(currentUser._id)) {
+        const trackingText = status === ORDER_STATUS.SHIPPED ? ` via ${carrier}, tracking ${trackingNumber}` : "";
+        await notifyUser(updated.createdBy, {
+            type: NOTIFICATION_TYPE.ORDER_STATUS_CHANGED,
+            title: `Order ${status.toLowerCase()}`,
+            message: `${updated.orderNumber} for ${updated.customer.name} is now ${status}${trackingText}.`,
+            link: orderLink(updated)
+        });
+    }
+
+    return getOrderWithItems(updated);
+};
+
 module.exports = {
     calculateLine,
     calculateOrderTotals,
@@ -387,5 +526,7 @@ module.exports = {
     createOrder,
     updateOrder,
     confirmOrder,
-    cancelOrder
+    cancelOrder,
+    getFulfillmentQueue,
+    updateOrderStatus
 };

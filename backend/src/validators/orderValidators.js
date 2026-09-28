@@ -66,6 +66,37 @@ const cancelOrderSchema = z.object({
     reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional()
 });
 
+// The statuses this route can set. PENDING/CONFIRMED/CANCELLED have their own actions.
+const FULFILLMENT_STATUSES = [
+    ORDER_STATUS.PROCESSING,
+    ORDER_STATUS.PACKED,
+    ORDER_STATUS.SHIPPED,
+    ORDER_STATUS.DELIVERED
+];
+
+// PUT /api/orders/:id/status  { status, note?, carrier?, trackingNumber? }
+const updateOrderStatusSchema = z
+    .object({
+        status: z.enum(FULFILLMENT_STATUSES, {
+            error: `Status must be one of: ${FULFILLMENT_STATUSES.join(", ")} (use confirm/cancel for the others)`
+        }),
+        note: z.string().trim().max(500, "Note must be at most 500 characters").optional(),
+        carrier: z.string().trim().min(2, "Carrier must be at least 2 characters").max(100).optional(),
+        trackingNumber: z.string().trim().min(3, "Tracking number must be at least 3 characters").max(100).optional()
+    })
+    // superRefine lets us add errors only in some cases: here, only when shipping
+    .superRefine((data, context) => {
+        if (data.status !== ORDER_STATUS.SHIPPED) {
+            return;
+        }
+        if (!data.carrier) {
+            context.addIssue({ code: "custom", path: ["carrier"], message: "Carrier is required when shipping an order" });
+        }
+        if (!data.trackingNumber) {
+            context.addIssue({ code: "custom", path: ["trackingNumber"], message: "Tracking number is required when shipping an order" });
+        }
+    });
+
 // GET /api/orders?status=&warehouse=&search=&from=&to=&page=&limit=
 const listOrdersQuerySchema = z
     .object({
@@ -81,4 +112,10 @@ const listOrdersQuerySchema = z
         path: ["from"]
     });
 
-module.exports = { createOrderSchema, updateOrderSchema, cancelOrderSchema, listOrdersQuerySchema };
+module.exports = {
+    createOrderSchema,
+    updateOrderSchema,
+    cancelOrderSchema,
+    updateOrderStatusSchema,
+    listOrdersQuerySchema
+};

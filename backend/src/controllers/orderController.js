@@ -51,4 +51,30 @@ const cancelOrder = async (req, res) => {
     sendOrder(res, 200, `Order ${result.order.orderNumber} cancelled`, result);
 };
 
-module.exports = { getOrders, getOrderById, createOrder, updateOrder, confirmOrder, cancelOrder };
+// GET /api/orders/fulfillment-queue
+const getFulfillmentQueue = async (req, res) => {
+    const queue = await orderService.getFulfillmentQueue();
+
+    res.status(200).json({
+        success: true,
+        message: "Fulfillment queue fetched successfully",
+        data: { queue }
+    });
+};
+
+// PUT /api/orders/:id/status
+const updateOrderStatus = async (req, res) => {
+    const result = await orderService.updateOrderStatus(req.params.id, req.body, req.user);
+    sendOrder(res, 200, `Order ${result.order.orderNumber} is now ${result.order.status}`, result);
+};
+
+module.exports = {
+    getOrders,
+    getOrderById,
+    createOrder,
+    updateOrder,
+    confirmOrder,
+    cancelOrder,
+    getFulfillmentQueue,
+    updateOrderStatus
+};

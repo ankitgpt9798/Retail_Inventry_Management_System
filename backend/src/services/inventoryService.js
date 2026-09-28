@@ -306,6 +306,79 @@ const releaseStock = async ({ productId, warehouseId, quantity }) => {
     return inventory;
 };
 
+// ---------- Shipping reserved stock (order fulfillment) ----------
+
+// Business Rule 5: when an order ships, its reserved units physically leave:
+//   quantity -= shipped   AND   reservedQuantity -= shipped
+// "available" doesn't change (those units were already promised), so no low-stock check.
+const shipReservedStock = async ({ productId, warehouseId, quantity, userId, referenceId, note }) => {
+    const product = await findProductOrFail(productId);
+    const warehouse = await findWarehouseOrFail(warehouseId);
+
+    const inventory = await Inventory.findOneAndUpdate(
+        {
+            product: product._id,
+            warehouse: warehouse._id,
+            reservedQuantity: { $gte: quantity },
+            quantity: { $gte: quantity }
+        },
+        { $inc: { quantity: -quantity, reservedQuantity: -quantity } },
+        { returnDocument: "after" }
+    );
+
+    if (!inventory) {
+        // Only possible if reservations were changed by hand (e.g. in Compass)
+        throw new AppError(
+            409,
+            "RESERVATION_MISMATCH",
+            `Reserved stock of ${product.sku} in ${warehouse.code} is lower than the ${quantity} unit(s) being shipped`
+        );
+    }
+
+    await recordStockChange({
+        inventory,
+        product,
+        warehouse,
+        type: STOCK_TRANSACTION_TYPE.STOCK_OUT,
+        quantity,
+        quantityBefore: inventory.quantity + quantity,
+        referenceType: STOCK_REFERENCE_TYPE.ORDER,
+        referenceId,
+        note,
+        userId
+    });
+
+    return inventory;
+};
+
+// Puts shipped units back on the shelf AND back into the reservation, when a shipment
+// has to be rolled back. History is never deleted, so this is recorded as an ADJUSTMENT.
+const undoShippedStock = async ({ productId, warehouseId, quantity, userId, referenceId, note }) => {
+    const product = await findProductOrFail(productId);
+    const warehouse = await findWarehouseOrFail(warehouseId);
+
+    const inventory = await Inventory.findOneAndUpdate(
+        { product: product._id, warehouse: warehouse._id },
+        { $inc: { quantity, reservedQuantity: quantity } },
+        { returnDocument: "after" }
+    );
+
+    await recordStockChange({
+        inventory,
+        product,
+        warehouse,
+        type: STOCK_TRANSACTION_TYPE.ADJUSTMENT,
+        quantity,
+        quantityBefore: inventory.quantity - quantity,
+        referenceType: STOCK_REFERENCE_TYPE.ORDER,
+        referenceId,
+        note,
+        userId
+    });
+
+    return inventory;
+};
+
 // ---------- Reads ----------
 
 // GET /api/inventory — warehouse-wise view when ?warehouse= is given
@@ -449,6 +522,8 @@ module.exports = {
     removeStock,
     reserveStock,
     releaseStock,
+    shipReservedStock,
+    undoShippedStock,
     getInventory,
     getLowStock,
     getInventoryById,

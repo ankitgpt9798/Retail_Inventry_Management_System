@@ -170,7 +170,9 @@ User 1──* Notification,  User 1──* AuditLog
 | POST | /api/orders | ADMIN, STAFF | Create PENDING `{customer{name, email?, phone?, address?}, warehouse, items[{product, quantity}], notes?, confirm?}` |
 | PUT | /api/orders/:id | ADMIN, STAFF | Edit PENDING (customer, warehouse, items, notes) |
 | PUT | /api/orders/:id/confirm | ADMIN, STAFF | PENDING → CONFIRMED, reserve stock |
-| DELETE | /api/orders/:id | ADMIN, STAFF | Cancel `{reason?}` (kept; reservation released) |
+| DELETE | /api/orders/:id | ADMIN, STAFF | Cancel `{reason?}` (kept; reservation released) — only before SHIPPED |
+| PUT | /api/orders/:id/status | ADMIN, STAFF | Fulfillment `{status: PROCESSING/PACKED/SHIPPED/DELIVERED, note?, carrier?, trackingNumber?}` |
+| GET | /api/orders/fulfillment-queue | ADMIN, MANAGER, STAFF | Counts per stage `{CONFIRMED, PROCESSING, PACKED, SHIPPED}` |
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -281,6 +283,16 @@ PENDING ─confirm (reserve)─► CONFIRMED ─► PROCESSING ─► PACKED ─
 - Roles: ADMIN + STAFF manage orders; INVENTORY_MANAGER views; SUPPLIER none.
 - Error codes: `ORDER_NOT_FOUND` 404, `INVALID_ORDER_STATUS` 409, `ORDER_CHANGED` 409, `INSUFFICIENT_STOCK` 400, `WAREHOUSE_HAS_OPEN_ORDERS` 409.
 
+## Order Fulfillment Rules (Step 13)
+- `PUT /api/orders/:id/status`, one step at a time (`PREVIOUS_STATUS` map in orderService): CONFIRMED→PROCESSING→PACKED→SHIPPED→DELIVERED. No skipping, no going back. PENDING/CONFIRMED/CANCELLED are not accepted here (confirm/cancel actions).
+- **Rule 5 at SHIPPED** (goods leave the building): `inventoryService.shipReservedStock` per line, atomic `WHERE reserved ≥ qty AND quantity ≥ qty → quantity −= qty, reserved −= qty`; STOCK_OUT transaction, referenceType ORDER. Available is unchanged → no low-stock alert at shipping.
+- Why SHIPPED (not PACKED/DELIVERED): inventory must match what is physically on our shelves; packed goods are still here and the order can still be cancelled; after shipping they're gone.
+- SHIPPED requires `carrier` + `trackingNumber` (Zod `superRefine`).
+- Ship all lines or none: claim PACKED→SHIPPED first (double-click safe), then lines; a failed line → already-shipped lines put back with `undoShippedStock` (recorded as ADJUSTMENT, history never deleted), status back to PACKED, carrier/tracking removed, history entry popped. Error `RESERVATION_MISMATCH` 409 (only possible after manual DB edits).
+- Cancel allowed up to PACKED (releases reservation); not after SHIPPED.
+- Every step appends to `statusHistory` (who/when/note) = order tracking. Creator notified (ORDER_STATUS_CHANGED) when someone else moves the order; shipping message includes carrier + tracking.
+- Audit: ORDER_STATUS_UPDATED, ORDER_SHIPPED.
+
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
 - [x] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED) — `warehouseService.ensureCanDeactivate`.
@@ -346,8 +358,9 @@ _Step 17._
 | 9. Stock transfers | Done |
 | 10. Suppliers | Done |
 | 11. Purchases (requests, POs, supplier portal, receiving) | Done |
-| 12. Customer orders (reserve stock) | Done (359 tests passing) |
-| 13. Order fulfillment (pick, pack, ship, deliver; Rule 5) | Next |
+| 12. Customer orders (reserve stock) | Done |
+| 13. Order fulfillment (pick, pack, ship, deliver; Rule 5) | Done (379 tests passing) |
+| 14. Notifications API (list, unread count, mark read) | Next |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.

@@ -8,6 +8,7 @@ const {
     createOrderSchema,
     updateOrderSchema,
     cancelOrderSchema,
+    updateOrderStatusSchema,
     listOrdersQuerySchema
 } = require("../validators/orderValidators");
 
@@ -21,10 +22,14 @@ const canManage = authorize(ROLES.ADMIN, ROLES.STAFF);
 router.use(protect);
 
 router.get("/", canView, validate(listOrdersQuerySchema, "query"), orderController.getOrders);
+// Fixed path before "/:id", otherwise "fulfillment-queue" would be treated as an id
+router.get("/fulfillment-queue", canView, orderController.getFulfillmentQueue);
 router.get("/:id", canView, orderController.getOrderById);
 router.post("/", canManage, validate(createOrderSchema), orderController.createOrder);
 router.put("/:id", canManage, validate(updateOrderSchema), orderController.updateOrder);
 router.put("/:id/confirm", canManage, orderController.confirmOrder);
+// Fulfillment: PROCESSING → PACKED → SHIPPED → DELIVERED
+router.put("/:id/status", canManage, validate(updateOrderStatusSchema), orderController.updateOrderStatus);
 // "Delete" cancels the order (it is kept for history, like every other delete in this API)
 router.delete("/:id", canManage, validate(cancelOrderSchema), orderController.cancelOrder);
 
