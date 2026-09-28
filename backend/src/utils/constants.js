@@ -30,6 +30,13 @@ const TRANSFER_STATUS = {
     CANCELLED: "CANCELLED"
 };
 
+// Transfers that are not finished yet (their warehouses must stay active)
+const OPEN_TRANSFER_STATUSES = [
+    TRANSFER_STATUS.REQUESTED,
+    TRANSFER_STATUS.APPROVED,
+    TRANSFER_STATUS.DISPATCHED
+];
+
 const ORDER_STATUS = {
     PENDING: "PENDING",
     CONFIRMED: "CONFIRMED",
@@ -82,6 +89,7 @@ module.exports = {
     USER_STATUS,
     RECORD_STATUS,
     TRANSFER_STATUS,
+    OPEN_TRANSFER_STATUSES,
     ORDER_STATUS,
     PURCHASE_STATUS,
     STOCK_TRANSACTION_TYPE,

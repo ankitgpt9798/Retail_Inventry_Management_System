@@ -60,7 +60,8 @@ Any thrown error → errorMiddleware → { success:false, message, error }
 ```
 
 ## Database Design
-13 collections (spec's 12 + `stockTransfers`). All statuses/roles come from `src/utils/constants.js`.
+14 collections (spec's 12 + `stockTransfers` + `counters`). All statuses/roles come from `src/utils/constants.js`.
+`counters` (`models/Counter.js`): `{ _id: "transfer", seq: 7 }` — hands out TRF/ORD/PO numbers atomically.
 
 | Collection | Model file | Purpose | Key fields | Unique |
 |---|---|---|---|---|
@@ -139,6 +140,15 @@ User 1──* Notification,  User 1──* AuditLog
 
 `POST /api/inventory/transfer` from the spec is intentionally not built: transfers use the approval workflow in `/api/transfers` (Step 9) so there is one way to move stock.
 
+| GET | /api/transfers?status=&product=&warehouse=&fromWarehouse=&toWarehouse=&search=&page=&limit= | ADMIN, MANAGER | List/history (`warehouse` = either side, `search` = transfer number) |
+| GET | /api/transfers/:id | ADMIN, MANAGER | One transfer with who did each step |
+| POST | /api/transfers | ADMIN, MANAGER | Request `{product, fromWarehouse, toWarehouse, quantity, notes?}` |
+| PUT | /api/transfers/:id/approve | ADMIN, MANAGER (not the requester) | REQUESTED → APPROVED |
+| PUT | /api/transfers/:id/reject | ADMIN, MANAGER | REQUESTED → REJECTED `{reason}` |
+| PUT | /api/transfers/:id/dispatch | ADMIN, MANAGER | APPROVED → DISPATCHED, source −X |
+| PUT | /api/transfers/:id/receive | ADMIN, MANAGER | DISPATCHED → RECEIVED, destination +X |
+| PUT | /api/transfers/:id/cancel | ADMIN, MANAGER | REQUESTED/APPROVED → CANCELLED `{reason?}` |
+
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
 **Error codes so far:** `VALIDATION_ERROR` 422, `SUPPLIER_REQUIRED` 422, `INVALID_JSON` 400, `INVALID_ID` 400, `CANNOT_CHANGE_OWN_ROLE` 400, `CANNOT_CHANGE_OWN_STATUS` 400, `CANNOT_DEACTIVATE_SELF` 400, `INVALID_CURRENT_PASSWORD` 400, `SAME_PASSWORD` 400, `INVALID_CREDENTIALS` 401, `NOT_AUTHENTICATED` 401, `INVALID_TOKEN` 401, `TOKEN_EXPIRED` 401, `SESSION_REVOKED` 401, `USER_NOT_FOUND` 401/404, `ACCOUNT_PENDING` 403, `ACCOUNT_INACTIVE` 403, `FORBIDDEN` 403, `SUPPLIER_NOT_FOUND` 404, `NOT_FOUND` 404, `EMAIL_EXISTS` 409, `DUPLICATE_VALUE` 409, `SERVER_ERROR` 500.
@@ -185,9 +195,28 @@ User 1──* Notification,  User 1──* AuditLog
 - `?lowStock=` accepts only "true"/"false" (`z.coerce.boolean()` would turn "false" into true).
 - Error codes: `PRODUCT_INACTIVE` 422, `WAREHOUSE_INACTIVE` 422, `WAREHOUSE_NOT_FOUND` 404, `INVENTORY_NOT_FOUND` 404, `CAPACITY_EXCEEDED` 409, `INSUFFICIENT_STOCK` 400.
 
+## Stock Transfer Rules
+```
+REQUESTED ─approve─► APPROVED ─dispatch─► DISPATCHED ─receive─► RECEIVED
+    │ reject             │ cancel          source −X              destination +X
+    ▼                    ▼                 (TRANSFER_OUT)         (TRANSFER_IN)
+ REJECTED            CANCELLED ◄── also from REQUESTED
+```
+- Rule 6 via Step 8's `removeStock` (dispatch) and `addStock` (receive), `referenceType: TRANSFER`, `referenceId: transfer._id`.
+- **No reservation at approval**: stock is checked (read-only) at request and at approval, and removed atomically at dispatch. If it ran out meanwhile, dispatch fails with `INSUFFICIENT_STOCK` and the transfer stays APPROVED.
+- **In transit** (DISPATCHED): goods are in neither warehouse. Destination capacity is checked at receive; if full, receive fails and it stays DISPATCHED.
+- Goods in transit are receivable even if the product was deactivated (`addStock({ requireActiveProduct: false })`).
+- **Segregation of duties**: the requester cannot approve their own transfer (403 `SELF_APPROVAL_NOT_ALLOWED`).
+- **Atomic status changes** (`moveStatus`): `findOneAndUpdate({ _id, status: { $in: allowedFrom } }, { $set: { status: to } })`. The status is claimed first, then stock moves; if the stock step fails the status is reverted (`revertStatus`). Two simultaneous dispatch clicks → one 200, one 409, stock removed once (tested).
+- Cancel only before dispatch. Reject needs a reason.
+- Transfer numbers `TRF-000001` from `counterService.getNextCode("transfer", "TRF")` (atomic `$inc` on `counters`; ORD/PO will reuse it).
+- Notifications (STOCK_TRANSFER): request → other admins/managers; approve/reject/cancel → requester; dispatch → destination warehouse manager; receive → requester.
+- Audit: TRANSFER_REQUESTED / APPROVED / REJECTED / DISPATCHED / RECEIVED / CANCELLED.
+- Error codes: `TRANSFER_NOT_FOUND` 404, `INVALID_TRANSFER_STATUS` 409, `SELF_APPROVAL_NOT_ALLOWED` 403, `WAREHOUSE_HAS_OPEN_TRANSFERS` 409.
+
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
-- [ ] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED).
+- [x] Step 9: cannot deactivate a warehouse with open transfers (REQUESTED/APPROVED/DISPATCHED) — `warehouseService.ensureCanDeactivate`.
 - [ ] Step 11: cannot deactivate a warehouse with open purchase orders.
 - [ ] Step 12: cannot deactivate a warehouse with open customer orders.
 
@@ -245,8 +274,9 @@ _Step 17._
 | 5. User & role management | Done |
 | 6. Products & categories | Done |
 | 7. Warehouses | Done |
-| 8. Inventory (stock-in/out, low stock, history) | Done (223 tests passing) |
-| 9. Stock transfers | Next |
+| 8. Inventory (stock-in/out, low stock, history) | Done |
+| 9. Stock transfers | Done (255 tests passing) |
+| 10. Suppliers | Next |
 
 ## Known Issues
 - A JWT copied before a plain logout stays valid until it expires (max 1 day). Password change/reset does revoke all tokens (tokenVersion). Acceptable for now; see Future Improvements.

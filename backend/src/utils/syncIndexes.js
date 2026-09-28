@@ -18,7 +18,8 @@ const models = [
     require("../models/Supplier"),
     require("../models/PurchaseOrder"),
     require("../models/Notification"),
-    require("../models/AuditLog")
+    require("../models/AuditLog"),
+    require("../models/Counter")
 ];
 
 const syncIndexes = async () => {

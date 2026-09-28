@@ -56,6 +56,10 @@ const stockTransferSchema = new mongoose.Schema(
             type: String,
             trim: true
         },
+        cancelReason: {
+            type: String,
+            trim: true
+        },
         requestedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -63,6 +67,10 @@ const stockTransferSchema = new mongoose.Schema(
         },
         approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         approvedAt: Date,
+        rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        rejectedAt: Date,
+        cancelledBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        cancelledAt: Date,
         dispatchedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         dispatchedAt: Date,
         receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

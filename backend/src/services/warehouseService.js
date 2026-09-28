@@ -1,9 +1,10 @@
 const Warehouse = require("../models/Warehouse");
 const Inventory = require("../models/Inventory");
+const StockTransfer = require("../models/StockTransfer");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
-const { ROLES, RECORD_STATUS, USER_STATUS } = require("../utils/constants");
+const { ROLES, RECORD_STATUS, USER_STATUS, OPEN_TRANSFER_STATUSES } = require("../utils/constants");
 const { logAction, getChanges } = require("./auditService");
 
 // Which user fields to show for the manager
@@ -73,6 +74,28 @@ const ensureNoStock = async (warehouseId) => {
             `Cannot deactivate: the warehouse still holds ${totalQuantity} unit(s). Transfer the stock out first.`
         );
     }
+};
+
+// A warehouse can't be closed while goods are about to leave it or arrive at it
+const ensureNoOpenTransfers = async (warehouseId) => {
+    const openTransferCount = await StockTransfer.countDocuments({
+        status: { $in: OPEN_TRANSFER_STATUSES },
+        $or: [{ fromWarehouse: warehouseId }, { toWarehouse: warehouseId }]
+    });
+
+    if (openTransferCount > 0) {
+        throw new AppError(
+            409,
+            "WAREHOUSE_HAS_OPEN_TRANSFERS",
+            `Cannot deactivate: ${openTransferCount} open transfer(s) involve this warehouse. Complete or cancel them first.`
+        );
+    }
+};
+
+// Everything that must be true before a warehouse is deactivated
+const ensureCanDeactivate = async (warehouseId) => {
+    await ensureNoStock(warehouseId);
+    await ensureNoOpenTransfers(warehouseId);
 };
 
 const getAuditFields = (warehouse) => ({
@@ -182,7 +205,7 @@ const updateWarehouse = async (warehouseId, updates, currentUser) => {
     }
 
     if (updates.status === RECORD_STATUS.INACTIVE && warehouse.status === RECORD_STATUS.ACTIVE) {
-        await ensureNoStock(warehouse._id);
+        await ensureCanDeactivate(warehouse._id);
     }
 
     const before = getAuditFields(warehouse);
@@ -210,7 +233,7 @@ const deactivateWarehouse = async (warehouseId, currentUser) => {
     const warehouse = await findWarehouseOrFail(warehouseId);
 
     if (warehouse.status !== RECORD_STATUS.INACTIVE) {
-        await ensureNoStock(warehouse._id);
+        await ensureCanDeactivate(warehouse._id);
 
         warehouse.status = RECORD_STATUS.INACTIVE;
         await warehouse.save();

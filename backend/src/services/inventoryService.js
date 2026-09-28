@@ -129,6 +129,9 @@ const sendLowStockAlert = async (inventory, product, warehouse) => {
 // with a different type/referenceType, so the rules live in ONE place.
 
 // Business Rule 3: quantity += received
+// requireActiveProduct: false is used for goods that were already on their way
+// (transfer in transit, purchase delivery) — they must be receivable even if the
+// product was deactivated meanwhile. Manual stock-in keeps the default (true).
 const addStock = async ({
     productId,
     warehouseId,
@@ -137,9 +140,12 @@ const addStock = async ({
     type = STOCK_TRANSACTION_TYPE.STOCK_IN,
     referenceType = STOCK_REFERENCE_TYPE.MANUAL,
     referenceId,
-    note
+    note,
+    requireActiveProduct = true
 }) => {
-    const product = await findActiveProduct(productId);
+    const product = requireActiveProduct
+        ? await findActiveProduct(productId)
+        : await findProductOrFail(productId);
     const warehouse = await findActiveWarehouse(warehouseId);
 
     // The warehouse must have room for the new units
@@ -375,6 +381,8 @@ const updateReorderLevel = async (inventoryId, reorderLevel, userId) => {
 };
 
 module.exports = {
+    findActiveProduct,
+    findActiveWarehouse,
     getAvailable,
     isLowStock,
     becameLowStock,
