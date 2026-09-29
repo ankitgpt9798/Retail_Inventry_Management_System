@@ -16,6 +16,7 @@ import api, { getErrorMessage } from "../../services/api";
 import PageHeader from "../../components/common/PageHeader";
 import Loader from "../../components/common/Loader";
 import ErrorAlert from "../../components/common/ErrorAlert";
+import DashboardCharts from "../../components/charts/DashboardCharts";
 import { formatCurrency, formatNumber, greeting } from "../../utils/format";
 
 // The 10 KPIs from the spec, grouped the way people think about them.
@@ -125,6 +126,13 @@ const DashboardPage = () => {
                             </div>
                         </section>
                     ))}
+
+                    <section aria-labelledby="dashboard-trends">
+                        <h2 id="dashboard-trends" className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
+                            Trends · last 6 months
+                        </h2>
+                        <DashboardCharts charts={dashboard.charts} />
+                    </section>
                 </div>
             )}
         </>

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import api, { getErrorMessage } from "../../services/api";
 import useUnreadCount from "../../hooks/useUnreadCount";
@@ -12,6 +13,7 @@ const NotificationBell = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const detailsRef = useRef(null);
+    const navigate = useNavigate();
 
     // <details> opens/closes the dropdown; we load the list each time it opens
     const handleToggle = async () => {
@@ -28,6 +30,15 @@ const NotificationBell = () => {
         }
         finally {
             setLoading(false);
+        }
+    };
+
+    // Clicking a notification reads it and, when it links to a page (e.g. an order), opens that page
+    const openNotification = async (notification) => {
+        await markAsRead(notification);
+        if (notification.link) {
+            detailsRef.current.open = false;
+            navigate(notification.link);
         }
     };
 
@@ -92,7 +103,7 @@ const NotificationBell = () => {
                         <button
                             type="button"
                             key={notification._id}
-                            onClick={() => markAsRead(notification)}
+                            onClick={() => openNotification(notification)}
                             className={`block w-full border-b border-base-200 px-4 py-3 text-left hover:bg-base-200 ${notification.isRead ? "opacity-60" : ""}`}
                         >
                             <span className="flex items-center gap-2 text-sm font-medium">
@@ -103,6 +114,12 @@ const NotificationBell = () => {
                             <span className="mt-1 block text-xs text-base-content/50">{formatDateTime(notification.createdAt)}</span>
                         </button>
                     ))}
+                </div>
+
+                <div className="border-t border-base-300 px-4 py-2 text-center">
+                    <Link to="/notifications" className="link link-primary text-sm" onClick={() => { detailsRef.current.open = false; }}>
+                        View all notifications
+                    </Link>
                 </div>
             </div>
         </details>

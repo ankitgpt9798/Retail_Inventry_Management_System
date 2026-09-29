@@ -5,10 +5,11 @@ import api, { getErrorMessage } from "../services/api";
 //   path:    "/products"
 //   listKey: the name of the array inside response.data.data, e.g. "products"
 //   params:  { search, status, page, limit … }  (empty values are left out of the URL)
-// Returns { items, pagination, isLoading, error, reload }
+// Returns { items, pagination, data, isLoading, error, reload }  (data = everything the API sent, e.g. unreadCount)
 const useList = (path, listKey, params) => {
     const [items, setItems] = useState([]);
     const [pagination, setPagination] = useState(null);
+    const [data, setData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -25,6 +26,7 @@ const useList = (path, listKey, params) => {
             const response = await api.get(path, { params: cleanParams });
             setItems(response.data.data[listKey]);
             setPagination(response.data.data.pagination);
+            setData(response.data.data);
         }
         catch (err) {
             setError(getErrorMessage(err, "Could not load the list"));
@@ -38,7 +40,7 @@ const useList = (path, listKey, params) => {
         load();
     }, [load]);
 
-    return { items, pagination, isLoading, error, reload: load };
+    return { items, pagination, data, isLoading, error, reload: load };
 };
 
 export default useList;

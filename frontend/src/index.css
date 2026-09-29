@@ -48,6 +48,14 @@
     --noise: 0;
 }
 
+/* Chart colours, in a FIXED order (never cycled). Checked with the dataviz validator:
+   this pair passes the colour-blind and contrast checks on a light surface.
+   The app has a single light theme, so there is no dark set. */
+:root {
+    --series-1: #2a78d6; /* blue */
+    --series-2: #eb6834; /* orange */
+}
+
 html {
     scroll-behavior: smooth;
 }

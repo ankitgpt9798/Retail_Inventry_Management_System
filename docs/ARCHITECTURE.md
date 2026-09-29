@@ -421,6 +421,17 @@ Password change → backend clears cookie → loggedOutWithMessage → /login
 - Supplier portal = the same `/purchases` pages with a supplier-shaped view: title "My purchase orders", no create button, no supplier column, and no supplier/warehouse filters. Those two lists are forbidden for suppliers (403), so `useOptions` got an `enabled` argument and they are never requested. The backend limits a supplier to its own company's orders that were sent to it (`orderedAt` set).
 - Limitations: drop-downs load ≤100 items; the detail page has no separate supplier or per-line history view.
 
+**Charts, reports, inbox, users, audit log, navigation, code-splitting (17.6):**
+- **Charts** are small hand-written SVG components (no chart library, so no extra dependency): `components/charts/BarChart` (columns for time, horizontal bars for ranked lists), `LineChart`, `ChartCard` (title + "View as table" switch) and `ChartTooltip`; helpers in `utils/chart.js`. Rules followed (from the dataviz method): one measure per chart (never two axes), bars ≤24px with a rounded data end, hairline grid, a legend whenever there are ≥2 series, only the latest/highest bar labelled (tooltip + table carry the rest), every mark focusable and announced by `aria-label`, an empty measure shows "Nothing to show" instead of a flat chart. Colours are two fixed series colours in `index.css` (`--series-1` blue, `--series-2` orange), validated with the dataviz colour checker (colour-blind + contrast); text always uses the theme's text colours. The app has one light theme, so there is no dark set.
+- **Dashboard** now has six charts under the KPIs (`DashboardCharts`): revenue by month, purchases by month, stock in/out, order status, stock by warehouse, top products. Missing chart data never crashes the page.
+- **Reports (`/reports`, admin + manager):** one tabbed page for the eight backend reports. Each report is one entry in `components/reports/reportConfigs.jsx` (endpoint, which filters, headline tiles, charts, table) — adding a report means adding an entry. Filters: date range (empty = last 6 months), warehouse, category, supplier, rank-by, top-N. Data is stored together with the report it belongs to, so a tab change can never draw the previous report's data (a bug the tests caught).
+- **Notifications (`/notifications`, every role):** full inbox with All/Unread, type filter, mark read / all, delete, pagination. Clicking a notification reads it and opens its `link`. The bell now has "View all notifications", opens a notification's link, and refreshes its unread number immediately when the page changes things (window event `notifications-changed` from `useUnreadCount`).
+- **Users (`/users`, admin):** list with search/role/status filters; approve pending sign-ups (`PUT status ACTIVE`), create, edit, reset password, deactivate (not yourself), reactivate. SUPPLIER users must pick a supplier company; moving a user away from SUPPLIER sends `supplier: null`. Your own role and status are shown read-only (the backend refuses those changes). `status: "PENDING"` is never sent (the backend only accepts ACTIVE/INACTIVE).
+- **Audit log (`/audit-logs`, admin):** read-only, filters (action / record type from `GET /audit-logs/filters`, user, dates, order), expandable row with field-by-field before/after and extra details.
+- **Navigation:** `APP_LINKS` have an optional `group`; `getNavItems(role)` turns them into single links and drop-downs (Catalog, Stock, Sales, Purchasing, Admin). A group with one visible link (a supplier's Purchases) is a plain link. Drop-downs open on focus, close on click-away and after every page change. The mobile menu stays a flat list.
+- **Code-splitting:** every staff page is `React.lazy`, loaded on first visit behind a `Suspense` spinner in `AppLayout`; `AppRoutes` is one `APP_PAGES` table (path + PAGE_ACCESS key + page). The public website stays in the first download. Main bundle is now 454 kB (142 kB gzip) and the "chunk larger than 500 kB" build warning is gone.
+- **Not built (possible later):** CSV/PDF export of reports, a dark theme, per-product stock view, phone-number clearing for suppliers, drill-down from a chart bar to its list.
+
 **Frontend build parts**
 | Part | Scope | Status |
 |---|---|---|
@@ -429,7 +440,7 @@ Password change → backend clears cookie → loggedOutWithMessage → /login
 | 17.3 | Inventory, stock-in/out, low stock, transfers | Done (94 frontend tests in total) |
 | 17.4 | Orders + fulfillment | Done (131 frontend tests in total) |
 | 17.5 | Suppliers, purchases, supplier portal | Done (178 frontend tests in total) |
-| 17.6 | Dashboard charts, reports, notifications page, users, audit log, code-splitting | Next |
+| 17.6 | Dashboard charts, reports, notifications page, users, audit log, code-splitting | Done (269 frontend tests in total) |
 
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
@@ -501,7 +512,7 @@ _Step 17._
 | 14. Notifications API (list, unread count, mark read) | Done |
 | 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done |
 | 16. Audit log API | Done (450 tests passing) — **backend complete** |
-| 17. Frontend (public website + staff app) | In progress — Parts 17.1–17.5 done (178 frontend tests) |
+| 17. Frontend (public website + staff app) | Done — all six parts (269 frontend tests) |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.

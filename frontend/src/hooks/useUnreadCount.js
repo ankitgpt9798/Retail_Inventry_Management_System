@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "../services/api";
 
+// The name of the browser event other parts of the app fire after reading / deleting notifications
+export const NOTIFICATIONS_CHANGED = "notifications-changed";
+
 // How often the bell asks the backend for new notifications
 const REFRESH_EVERY_MS = 60 * 1000;
 
@@ -23,8 +26,13 @@ const useUnreadCount = () => {
     useEffect(() => {
         refresh();
         const timer = setInterval(refresh, REFRESH_EVERY_MS);
-        // Stop the timer when the component disappears (e.g. after logout)
-        return () => clearInterval(timer);
+        // The notifications page announces its changes, so the bell updates at once instead of within a minute
+        window.addEventListener(NOTIFICATIONS_CHANGED, refresh);
+        // Stop the timer and the listener when the component disappears (e.g. after logout)
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener(NOTIFICATIONS_CHANGED, refresh);
+        };
     }, [refresh]);
 
     return { unreadCount, refresh };

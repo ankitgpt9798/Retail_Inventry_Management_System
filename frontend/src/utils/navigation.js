@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Boxes, ClipboardList, FileText, LayoutDashboard, PackageCheck, ShoppingCart, Tags, Truck, Warehouse } from "lucide-react";
+import { ArrowLeftRight, Boxes, ChartColumn, ClipboardList, FileText, LayoutDashboard, PackageCheck, ScrollText, ShoppingCart, Tags, Truck, Users, Warehouse } from "lucide-react";
 import { ROLES } from "./roles";
 
 const { ADMIN, INVENTORY_MANAGER, STAFF, SUPPLIER } = ROLES;
@@ -22,6 +22,11 @@ export const PAGE_ACCESS = {
     // Suppliers see (only) their own purchase orders; managers run the whole workflow
     purchases: [ADMIN, INVENTORY_MANAGER, SUPPLIER],
     purchaseForm: [ADMIN, INVENTORY_MANAGER],
+    reports: [ADMIN, INVENTORY_MANAGER],
+    users: [ADMIN],
+    auditLogs: [ADMIN],
+    // Everyone has a personal notification inbox
+    notifications: [ADMIN, INVENTORY_MANAGER, STAFF, SUPPLIER],
     profile: [ADMIN, INVENTORY_MANAGER, STAFF, SUPPLIER]
 };
 
@@ -36,27 +41,51 @@ export const EDIT_ACCESS = {
     orders: [ADMIN, STAFF],
     fulfillment: [ADMIN, STAFF],
     suppliers: [ADMIN, INVENTORY_MANAGER],
-    purchases: [ADMIN, INVENTORY_MANAGER]
+    purchases: [ADMIN, INVENTORY_MANAGER],
+    users: [ADMIN]
 };
 
 export const canEdit = (page, role) => EDIT_ACCESS[page]?.includes(role) ?? false;
 
-// Links in the staff app's top navigation (more are added as each part is built)
+// Links in the staff app's top navigation
 export const APP_LINKS = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: PAGE_ACCESS.dashboard },
-    { to: "/products", label: "Products", icon: Boxes, roles: PAGE_ACCESS.products },
-    { to: "/categories", label: "Categories", icon: Tags, roles: PAGE_ACCESS.categories },
-    { to: "/warehouses", label: "Warehouses", icon: Warehouse, roles: PAGE_ACCESS.warehouses },
-    { to: "/inventory", label: "Inventory", icon: ClipboardList, roles: PAGE_ACCESS.inventory },
-    { to: "/transfers", label: "Transfers", icon: ArrowLeftRight, roles: PAGE_ACCESS.transfers },
-    { to: "/orders", label: "Orders", icon: ShoppingCart, roles: PAGE_ACCESS.orders },
-    { to: "/fulfillment", label: "Fulfillment", icon: PackageCheck, roles: PAGE_ACCESS.fulfillment },
-    { to: "/suppliers", label: "Suppliers", icon: Truck, roles: PAGE_ACCESS.suppliers },
-    { to: "/purchases", label: "Purchases", icon: FileText, roles: PAGE_ACCESS.purchases }
+    { to: "/products", label: "Products", icon: Boxes, roles: PAGE_ACCESS.products, group: "Catalog" },
+    { to: "/categories", label: "Categories", icon: Tags, roles: PAGE_ACCESS.categories, group: "Catalog" },
+    { to: "/inventory", label: "Inventory", icon: ClipboardList, roles: PAGE_ACCESS.inventory, group: "Stock" },
+    { to: "/warehouses", label: "Warehouses", icon: Warehouse, roles: PAGE_ACCESS.warehouses, group: "Stock" },
+    { to: "/transfers", label: "Transfers", icon: ArrowLeftRight, roles: PAGE_ACCESS.transfers, group: "Stock" },
+    { to: "/orders", label: "Orders", icon: ShoppingCart, roles: PAGE_ACCESS.orders, group: "Sales" },
+    { to: "/fulfillment", label: "Fulfillment", icon: PackageCheck, roles: PAGE_ACCESS.fulfillment, group: "Sales" },
+    { to: "/suppliers", label: "Suppliers", icon: Truck, roles: PAGE_ACCESS.suppliers, group: "Purchasing" },
+    { to: "/purchases", label: "Purchases", icon: FileText, roles: PAGE_ACCESS.purchases, group: "Purchasing" },
+    { to: "/reports", label: "Reports", icon: ChartColumn, roles: PAGE_ACCESS.reports },
+    { to: "/users", label: "Users", icon: Users, roles: PAGE_ACCESS.users, group: "Admin" },
+    { to: "/audit-logs", label: "Audit log", icon: ScrollText, roles: PAGE_ACCESS.auditLogs, group: "Admin" }
 ];
 
 export const getLinksForRole = (role) => {
     return APP_LINKS.filter((link) => link.roles.includes(role));
+};
+
+// The top bar: single links stay as they are; links that share a `group` become one drop-down.
+// A group with only ONE visible link (e.g. a supplier's "Purchasing") is shown as a plain link.
+// Returns [{ type: "link", link } | { type: "group", label, links }]
+export const getNavItems = (role) => {
+    const items = [];
+    for (const link of getLinksForRole(role)) {
+        const existing = link.group && items.find((item) => item.type === "group" && item.label === link.group);
+        if (existing) {
+            existing.links.push(link);
+        }
+        else if (link.group) {
+            items.push({ type: "group", label: link.group, links: [link] });
+        }
+        else {
+            items.push({ type: "link", link });
+        }
+    }
+    return items.map((item) => (item.type === "group" && item.links.length === 1 ? { type: "link", link: item.links[0] } : item));
 };
 
 // Where a user lands after logging in

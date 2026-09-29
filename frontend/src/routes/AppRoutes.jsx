@@ -1,9 +1,11 @@
+import { lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import PublicLayout from "../components/layout/PublicLayout";
 import AppLayout from "../components/layout/AppLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import { PAGE_ACCESS } from "../utils/navigation";
 
+// The public website loads with the first visit (it is small and everyone sees it)
 import HomePage from "../pages/public/HomePage";
 import FeaturesPage from "../pages/public/FeaturesPage";
 import AboutPage from "../pages/public/AboutPage";
@@ -11,22 +13,56 @@ import ContactPage from "../pages/public/ContactPage";
 import LoginPage from "../pages/public/LoginPage";
 import RegisterPage from "../pages/public/RegisterPage";
 import NotFoundPage from "../pages/NotFoundPage";
-import DashboardPage from "../pages/app/DashboardPage";
-import ProfilePage from "../pages/app/ProfilePage";
-import ProductsPage from "../pages/app/ProductsPage";
-import CategoriesPage from "../pages/app/CategoriesPage";
-import WarehousesPage from "../pages/app/WarehousesPage";
-import InventoryPage from "../pages/app/InventoryPage";
-import StockHistoryPage from "../pages/app/StockHistoryPage";
-import TransfersPage from "../pages/app/TransfersPage";
-import OrdersPage from "../pages/app/OrdersPage";
-import OrderFormPage from "../pages/app/OrderFormPage";
-import OrderDetailPage from "../pages/app/OrderDetailPage";
-import FulfillmentPage from "../pages/app/FulfillmentPage";
-import SuppliersPage from "../pages/app/SuppliersPage";
-import PurchasesPage from "../pages/app/PurchasesPage";
-import PurchaseFormPage from "../pages/app/PurchaseFormPage";
-import PurchaseDetailPage from "../pages/app/PurchaseDetailPage";
+
+// Staff-app pages are loaded only when someone opens them ("code splitting"): lazy() turns
+// each import into its own file, downloaded on first use. Until it arrives, AppLayout shows a spinner.
+const DashboardPage = lazy(() => import("../pages/app/DashboardPage"));
+const ProfilePage = lazy(() => import("../pages/app/ProfilePage"));
+const NotificationsPage = lazy(() => import("../pages/app/NotificationsPage"));
+const ProductsPage = lazy(() => import("../pages/app/ProductsPage"));
+const CategoriesPage = lazy(() => import("../pages/app/CategoriesPage"));
+const WarehousesPage = lazy(() => import("../pages/app/WarehousesPage"));
+const InventoryPage = lazy(() => import("../pages/app/InventoryPage"));
+const StockHistoryPage = lazy(() => import("../pages/app/StockHistoryPage"));
+const TransfersPage = lazy(() => import("../pages/app/TransfersPage"));
+const OrdersPage = lazy(() => import("../pages/app/OrdersPage"));
+const OrderFormPage = lazy(() => import("../pages/app/OrderFormPage"));
+const OrderDetailPage = lazy(() => import("../pages/app/OrderDetailPage"));
+const FulfillmentPage = lazy(() => import("../pages/app/FulfillmentPage"));
+const SuppliersPage = lazy(() => import("../pages/app/SuppliersPage"));
+const PurchasesPage = lazy(() => import("../pages/app/PurchasesPage"));
+const PurchaseFormPage = lazy(() => import("../pages/app/PurchaseFormPage"));
+const PurchaseDetailPage = lazy(() => import("../pages/app/PurchaseDetailPage"));
+const ReportsPage = lazy(() => import("../pages/app/ReportsPage"));
+const UsersPage = lazy(() => import("../pages/app/UsersPage"));
+const AuditLogPage = lazy(() => import("../pages/app/AuditLogPage"));
+
+// Every staff-app URL: its page, and the PAGE_ACCESS entry that says which roles may open it
+// (the same entry the navigation uses, so a link and its route can never disagree).
+const APP_PAGES = [
+    { path: "/dashboard", access: "dashboard", Page: DashboardPage },
+    { path: "/products", access: "products", Page: ProductsPage },
+    { path: "/categories", access: "categories", Page: CategoriesPage },
+    { path: "/warehouses", access: "warehouses", Page: WarehousesPage },
+    { path: "/inventory", access: "inventory", Page: InventoryPage },
+    { path: "/inventory/history", access: "inventory", Page: StockHistoryPage },
+    { path: "/transfers", access: "transfers", Page: TransfersPage },
+    { path: "/orders", access: "orders", Page: OrdersPage },
+    { path: "/orders/new", access: "orderForm", Page: OrderFormPage },
+    { path: "/orders/:id", access: "orders", Page: OrderDetailPage },
+    { path: "/orders/:id/edit", access: "orderForm", Page: OrderFormPage },
+    { path: "/fulfillment", access: "fulfillment", Page: FulfillmentPage },
+    { path: "/suppliers", access: "suppliers", Page: SuppliersPage },
+    { path: "/purchases", access: "purchases", Page: PurchasesPage },
+    { path: "/purchases/new", access: "purchaseForm", Page: PurchaseFormPage },
+    { path: "/purchases/:id", access: "purchases", Page: PurchaseDetailPage },
+    { path: "/purchases/:id/edit", access: "purchaseForm", Page: PurchaseFormPage },
+    { path: "/reports", access: "reports", Page: ReportsPage },
+    { path: "/users", access: "users", Page: UsersPage },
+    { path: "/audit-logs", access: "auditLogs", Page: AuditLogPage },
+    { path: "/notifications", access: "notifications", Page: NotificationsPage },
+    { path: "/profile", access: "profile", Page: ProfilePage }
+];
 
 // Every URL in the app.
 //  - Public pages share PublicLayout (website header + footer)
@@ -52,150 +88,17 @@ const AppRoutes = () => {
                     </ProtectedRoute>
                 }
             >
-                <Route
-                    path="/dashboard"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.dashboard}>
-                            <DashboardPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/products"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.products}>
-                            <ProductsPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/categories"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.categories}>
-                            <CategoriesPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/warehouses"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.warehouses}>
-                            <WarehousesPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/inventory"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.inventory}>
-                            <InventoryPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/inventory/history"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.inventory}>
-                            <StockHistoryPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/transfers"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.transfers}>
-                            <TransfersPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/orders"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.orders}>
-                            <OrdersPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/orders/new"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.orderForm}>
-                            <OrderFormPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/orders/:id"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.orders}>
-                            <OrderDetailPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/orders/:id/edit"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.orderForm}>
-                            <OrderFormPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/fulfillment"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.fulfillment}>
-                            <FulfillmentPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/suppliers"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.suppliers}>
-                            <SuppliersPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/purchases"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.purchases}>
-                            <PurchasesPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/purchases/new"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.purchaseForm}>
-                            <PurchaseFormPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/purchases/:id"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.purchases}>
-                            <PurchaseDetailPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/purchases/:id/edit"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.purchaseForm}>
-                            <PurchaseFormPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/profile"
-                    element={
-                        <ProtectedRoute roles={PAGE_ACCESS.profile}>
-                            <ProfilePage />
-                        </ProtectedRoute>
-                    }
-                />
+                {APP_PAGES.map(({ path, access, Page }) => (
+                    <Route
+                        key={path}
+                        path={path}
+                        element={
+                            <ProtectedRoute roles={PAGE_ACCESS[access]}>
+                                <Page />
+                            </ProtectedRoute>
+                        }
+                    />
+                ))}
             </Route>
         </Routes>
     );

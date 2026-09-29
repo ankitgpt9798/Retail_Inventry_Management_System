@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AppNavbar from "./AppNavbar";
 import api from "../../services/api";
@@ -34,6 +34,40 @@ describe("AppNavbar", () => {
 
         renderWithProviders(<AppNavbar />, { preloadedState: authState("SUPPLIER") });
         expect(screen.queryByRole("link", { name: /dashboard/i })).not.toBeInTheDocument();
+    });
+
+    test("related pages sit under drop-down groups, so the bar never overflows", () => {
+        renderWithProviders(<AppNavbar />, { preloadedState: authState("ADMIN") });
+
+        const desktop = within(screen.getByRole("navigation", { name: "App" }));
+        // single links stay single, related ones are grouped
+        expect(desktop.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
+        expect(desktop.getByRole("link", { name: /reports/i })).toBeInTheDocument();
+        for (const group of ["Catalog", "Stock", "Sales", "Purchasing", "Admin"]) {
+            expect(desktop.getByRole("button", { name: group })).toBeInTheDocument();
+        }
+        // the pages themselves are inside their group
+        const stockMenu = desktop.getByRole("button", { name: "Stock" }).nextElementSibling;
+        expect(within(stockMenu).getAllByRole("link").map((link) => link.textContent.trim())).toEqual(["Inventory", "Warehouses", "Transfers"]);
+        const adminMenu = desktop.getByRole("button", { name: "Admin" }).nextElementSibling;
+        expect(within(adminMenu).getAllByRole("link").map((link) => link.textContent.trim())).toEqual(["Users", "Audit log"]);
+    });
+
+    test("groups only show what the role may open", () => {
+        renderWithProviders(<AppNavbar />, { preloadedState: authState("INVENTORY_MANAGER") });
+
+        const desktop = within(screen.getByRole("navigation", { name: "App" }));
+        expect(desktop.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
+        expect(desktop.getByRole("link", { name: /reports/i })).toBeInTheDocument();
+        expect(desktop.getByRole("button", { name: "Purchasing" })).toBeInTheDocument();
+    });
+
+    test("a supplier sees just their purchase orders as a plain link, no drop-downs", () => {
+        renderWithProviders(<AppNavbar />, { preloadedState: authState("SUPPLIER") });
+
+        const desktop = within(screen.getByRole("navigation", { name: "App" }));
+        expect(desktop.getAllByRole("link").map((link) => link.textContent.trim())).toEqual(["Purchases"]);
+        expect(desktop.queryByRole("button")).not.toBeInTheDocument();
     });
 
     test("log out → tells the backend, clears the user, goes to /login", async () => {

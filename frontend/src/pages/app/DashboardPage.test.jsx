@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import DashboardPage from "./DashboardPage";
 import api from "../../services/api";
@@ -59,5 +59,27 @@ describe("DashboardPage", () => {
 
         expect(await screen.findByTestId("kpi-totalProducts")).toHaveTextContent("4");
         expect(api.get).toHaveBeenCalledTimes(2);
+    });
+
+    test("shows the trend charts under the KPIs, with a table view for each", async () => {
+        const full = JSON.parse(JSON.stringify(dashboardResponse));
+        full.data.data.charts = {
+            ...full.data.data.charts,
+            purchaseTrends: [{ month: "2026-09", purchaseOrders: 1, value: 50000 }],
+            stockMovement: [{ month: "2026-09", STOCK_IN: 60, STOCK_OUT: 5, TRANSFER_IN: 0, TRANSFER_OUT: 0, ADJUSTMENT: 0 }],
+            orderStatusDistribution: [{ status: "DELIVERED", count: 1 }],
+            inventoryByWarehouse: [{ code: "DEL-01", name: "Delhi Central", quantity: 68, utilizationPercent: 1 }],
+            topProducts: [{ name: "Laptop Pro", sku: "LAP-001", unitsSold: 2, revenue: 100000 }]
+        };
+        api.get.mockResolvedValue(full);
+        renderWithProviders(<DashboardPage />, { preloadedState: authState("ADMIN") });
+
+        expect(await screen.findByText("Trends · last 6 months")).toBeInTheDocument();
+        for (const title of ["Revenue by month (₹)", "Purchases by month (₹)", "Stock in and out", "Order status", "Stock by warehouse", "Top products"]) {
+            expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
+        }
+
+        await userEvent.click(screen.getByRole("button", { name: "View table: Top products" }));
+        expect(within(screen.getByRole("region", { name: "Top products" })).getByRole("cell", { name: "Laptop Pro" })).toBeInTheDocument();
     });
 });
