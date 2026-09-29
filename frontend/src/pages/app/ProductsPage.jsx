@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSelector } from "react-redux";
 import { Pencil, Plus, Power, RotateCcw } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
@@ -12,6 +12,7 @@ import Loader from "../../components/common/Loader";
 import ProductForm from "../../components/catalog/ProductForm";
 import useDebounce from "../../hooks/useDebounce";
 import useList from "../../hooks/useList";
+import useOptions from "../../hooks/useOptions";
 import api, { getErrorMessage } from "../../services/api";
 import { canEdit } from "../../utils/navigation";
 import { formatCurrency } from "../../utils/format";
@@ -41,13 +42,9 @@ const ProductsPage = () => {
     const [notice, setNotice] = useState("");
     const [actionError, setActionError] = useState("");
 
-    // Categories fill the filter drop-down and the form. The API allows at most 100 per request.
-    const [categories, setCategories] = useState([]);
-    useEffect(() => {
-        api.get("/categories", { params: { limit: 100 } })
-            .then((response) => setCategories(response.data.data.categories))
-            .catch(() => setCategories([])); // the products list still works without them
-    }, []);
+    // Categories fill the filter drop-down and the form (every page of them, not just the first 100).
+    // If they can't be loaded the products list still works without them.
+    const categories = useOptions("/categories", "categories");
 
     const { items, pagination, isLoading, error, reload } = useList("/products", "products", {
         search: debouncedSearch,

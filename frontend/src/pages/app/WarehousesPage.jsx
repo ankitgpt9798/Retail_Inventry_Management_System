@@ -13,6 +13,7 @@ import WarehouseForm from "../../components/catalog/WarehouseForm";
 import useDebounce from "../../hooks/useDebounce";
 import useList from "../../hooks/useList";
 import api, { getErrorMessage } from "../../services/api";
+import fetchAllPages from "../../services/fetchAllPages";
 import { canEdit } from "../../utils/navigation";
 import { ROLES } from "../../utils/roles";
 import { formatNumber } from "../../utils/format";
@@ -37,8 +38,8 @@ const WarehousesPage = () => {
     const [managers, setManagers] = useState(null);
     useEffect(() => {
         if (role !== ROLES.ADMIN) return;
-        api.get("/users", { params: { role: ROLES.INVENTORY_MANAGER, status: "ACTIVE", limit: 100 } })
-            .then((response) => setManagers(response.data.data.users))
+        fetchAllPages("/users", "users", { role: ROLES.INVENTORY_MANAGER, status: "ACTIVE" })
+            .then(setManagers)
             .catch(() => setManagers(null));
     }, [role]);
 
