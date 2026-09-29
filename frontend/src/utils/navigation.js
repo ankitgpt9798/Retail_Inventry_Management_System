@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Boxes, ClipboardList, LayoutDashboard, PackageCheck, ShoppingCart, Tags, Warehouse } from "lucide-react";
+import { ArrowLeftRight, Boxes, ClipboardList, FileText, LayoutDashboard, PackageCheck, ShoppingCart, Tags, Truck, Warehouse } from "lucide-react";
 import { ROLES } from "./roles";
 
 const { ADMIN, INVENTORY_MANAGER, STAFF, SUPPLIER } = ROLES;
@@ -18,6 +18,10 @@ export const PAGE_ACCESS = {
     orders: [ADMIN, INVENTORY_MANAGER, STAFF],
     orderForm: [ADMIN, STAFF],
     fulfillment: [ADMIN, INVENTORY_MANAGER, STAFF],
+    suppliers: [ADMIN, INVENTORY_MANAGER],
+    // Suppliers see (only) their own purchase orders; managers run the whole workflow
+    purchases: [ADMIN, INVENTORY_MANAGER, SUPPLIER],
+    purchaseForm: [ADMIN, INVENTORY_MANAGER],
     profile: [ADMIN, INVENTORY_MANAGER, STAFF, SUPPLIER]
 };
 
@@ -30,7 +34,9 @@ export const EDIT_ACCESS = {
     inventory: [ADMIN, INVENTORY_MANAGER],
     transfers: [ADMIN, INVENTORY_MANAGER],
     orders: [ADMIN, STAFF],
-    fulfillment: [ADMIN, STAFF]
+    fulfillment: [ADMIN, STAFF],
+    suppliers: [ADMIN, INVENTORY_MANAGER],
+    purchases: [ADMIN, INVENTORY_MANAGER]
 };
 
 export const canEdit = (page, role) => EDIT_ACCESS[page]?.includes(role) ?? false;
@@ -44,7 +50,9 @@ export const APP_LINKS = [
     { to: "/inventory", label: "Inventory", icon: ClipboardList, roles: PAGE_ACCESS.inventory },
     { to: "/transfers", label: "Transfers", icon: ArrowLeftRight, roles: PAGE_ACCESS.transfers },
     { to: "/orders", label: "Orders", icon: ShoppingCart, roles: PAGE_ACCESS.orders },
-    { to: "/fulfillment", label: "Fulfillment", icon: PackageCheck, roles: PAGE_ACCESS.fulfillment }
+    { to: "/fulfillment", label: "Fulfillment", icon: PackageCheck, roles: PAGE_ACCESS.fulfillment },
+    { to: "/suppliers", label: "Suppliers", icon: Truck, roles: PAGE_ACCESS.suppliers },
+    { to: "/purchases", label: "Purchases", icon: FileText, roles: PAGE_ACCESS.purchases }
 ];
 
 export const getLinksForRole = (role) => {
@@ -56,6 +64,9 @@ export const getHomePath = (role) => {
     if (PAGE_ACCESS.dashboard.includes(role)) {
         return "/dashboard";
     }
-    // Suppliers get their purchase-order portal in Part 17.5; until then, their profile
+    // Suppliers land on their purchase orders (the supplier portal)
+    if (PAGE_ACCESS.purchases.includes(role)) {
+        return "/purchases";
+    }
     return "/profile";
 };

@@ -5,13 +5,16 @@ import api from "../services/api";
 //   path:    "/products"
 //   listKey: "products"  (the array inside response.data.data)
 //   params:  extra filters, e.g. { status: "ACTIVE" }
+//   enabled: false = don't ask at all (e.g. the role isn't allowed to see this list)
 // The API allows at most 100 items per request, so that is the most a drop-down shows.
 // If loading fails the list is simply empty; the page itself still works.
-const useOptions = (path, listKey, params = {}) => {
+const useOptions = (path, listKey, params = {}, enabled = true) => {
     const [options, setOptions] = useState([]);
     const paramsKey = JSON.stringify(params);
 
     useEffect(() => {
+        if (!enabled) return undefined;
+
         let ignore = false;
         api.get(path, { params: { ...JSON.parse(paramsKey), limit: 100 } })
             .then((response) => {
@@ -24,7 +27,7 @@ const useOptions = (path, listKey, params = {}) => {
         return () => {
             ignore = true;
         };
-    }, [path, listKey, paramsKey]);
+    }, [path, listKey, paramsKey, enabled]);
 
     return options;
 };

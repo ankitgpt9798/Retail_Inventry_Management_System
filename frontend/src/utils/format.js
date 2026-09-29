@@ -16,6 +16,12 @@ export const formatDateTime = (value) => {
     return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 };
 
+// ISO date → "15 Oct 2026" (date only; "—" when empty)
+export const formatDate = (value) => {
+    if (!value) return "—";
+    return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date(value));
+};
+
 // "Good morning" / "Good afternoon" / "Good evening"
 export const greeting = (date = new Date()) => {
     const hour = date.getHours();

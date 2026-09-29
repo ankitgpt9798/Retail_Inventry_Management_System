@@ -386,7 +386,7 @@ Password change → backend clears cookie → loggedOutWithMessage → /login
 - `ProtectedRoute`: checking → loader; no user → `/login` (remembers `from`); wrong role → Forbidden page. The backend still enforces every permission.
 - `utils/navigation.js` `PAGE_ACCESS` is used by BOTH the links and the routes, so they can't disagree. Links are added only when their page exists.
 - Frontend Zod rules (e.g. password) copy the backend's for quick feedback; the backend re-checks.
-- Supplier home page is `/profile` until the supplier portal pages exist (Part 17.5).
+- A supplier user's home page is `/purchases` (the supplier portal, Part 17.5); `/profile` stays reachable from the user menu.
 
 **Frontend testing:** Vitest + React Testing Library + user-event; API mocked with `vi.mock("../services/api")` (real `getErrorMessage` kept); `renderWithProviders(ui, { preloadedState, route, path })`. Mount the component at its real `path` — mounting it at `*` makes redirecting components loop forever (found and fixed in 17.1). `services/api.test.js` tests the real interceptor with a fake Axios adapter. Run: `cd frontend && npm test`.
 
@@ -412,6 +412,15 @@ Password change → backend clears cookie → loggedOutWithMessage → /login
 - Fulfillment: queue counts per stage (`GET /orders/fulfillment-queue`) as clickable cards, plus the orders of the chosen stage (`GET /orders?status=`); after a step both refresh.
 - Limitations: product/warehouse drop-downs load at most 100 items; when editing, an order line whose product was deactivated after the order was made shows an empty product drop-down (pick another product).
 
+**Supplier & purchase pages (17.5):** `/suppliers`, `/purchases`, `/purchases/new`, `/purchases/:id`, `/purchases/:id/edit`.
+- Suppliers: same list + pop-up form pattern as the catalog pages; admin + manager only. Deactivation is refused by the backend while the supplier has open purchase orders, and otherwise also switches off its portal logins (the success message says how many). An empty phone is not sent (the backend rejects ""), so a phone number can't be cleared once saved.
+- `utils/purchaseStatus.js` holds labels/colours: DRAFT →(submit) PENDING →(approve) APPROVED →(order) ORDERED → PARTIALLY_RECEIVED → RECEIVED; PENDING can be REJECTED; any open order can be CANCELLED.
+- `components/purchases/PurchaseActions` decides the buttons from the status AND the role. Manager/admin: Submit (draft), Approve / Reject with reason (pending; approve hidden on your own request), Mark as ordered (asks first — the supplier will see it), Receive goods, Cancel (for a partly received order it reads "Cancel the rest" and says received goods stay in stock). Supplier: Confirm order (ordered and not yet confirmed) and Update delivery details.
+- `ReceiveGoodsModal` lists only lines with units outstanding; blank = nothing arrived; checks whole numbers and "not more than outstanding" before calling `PUT /purchases/:id/receive`. `SupplierDeliveryModal` is used for both confirm (date/note optional) and delivery update (at least one needed); only filled-in fields are sent.
+- Purchase form: supplier, warehouse, optional expected date, item lines with optional unit cost (empty = the product's cost price, so the field is omitted from the payload), estimated total. "Save as draft" or "Save and submit for approval"; when editing a draft, "submit" saves it and then calls `PUT /purchases/:id/submit`.
+- Supplier portal = the same `/purchases` pages with a supplier-shaped view: title "My purchase orders", no create button, no supplier column, and no supplier/warehouse filters. Those two lists are forbidden for suppliers (403), so `useOptions` got an `enabled` argument and they are never requested. The backend limits a supplier to its own company's orders that were sent to it (`orderedAt` set).
+- Limitations: drop-downs load ≤100 items; the detail page has no separate supplier or per-line history view.
+
 **Frontend build parts**
 | Part | Scope | Status |
 |---|---|---|
@@ -419,8 +428,8 @@ Password change → backend clears cookie → loggedOutWithMessage → /login
 | 17.2 | Products, categories, warehouses | Done (70 frontend tests in total) |
 | 17.3 | Inventory, stock-in/out, low stock, transfers | Done (94 frontend tests in total) |
 | 17.4 | Orders + fulfillment | Done (131 frontend tests in total) |
-| 17.5 | Suppliers, purchases, supplier portal | Next |
-| 17.6 | Dashboard charts, reports, notifications page, users, audit log, code-splitting | |
+| 17.5 | Suppliers, purchases, supplier portal | Done (178 frontend tests in total) |
+| 17.6 | Dashboard charts, reports, notifications page, users, audit log, code-splitting | Next |
 
 **Pending checks (add in the step that builds each module):**
 - [x] Step 8: stock-in refuses INACTIVE warehouses/products and refuses to exceed capacity. (Transfers must use `addStock`/`removeStock` to inherit this.)
@@ -492,7 +501,7 @@ _Step 17._
 | 14. Notifications API (list, unread count, mark read) | Done |
 | 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done |
 | 16. Audit log API | Done (450 tests passing) — **backend complete** |
-| 17. Frontend (public website + staff app) | In progress — Parts 17.1–17.4 done (131 frontend tests) |
+| 17. Frontend (public website + staff app) | In progress — Parts 17.1–17.5 done (178 frontend tests) |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.

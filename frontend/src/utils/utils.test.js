@@ -5,9 +5,11 @@ import { formatCurrency, formatNumber, greeting } from "./format";
 describe("navigation", () => {
     test("staff roles see the catalog links; suppliers see none", () => {
         expect(getLinksForRole("STAFF").map((link) => link.label)).toEqual(["Dashboard", "Products", "Categories", "Warehouses", "Inventory", "Orders", "Fulfillment"]);
+        expect(getLinksForRole("INVENTORY_MANAGER").map((link) => link.label)).toEqual(expect.arrayContaining(["Suppliers", "Purchases"]));
         // Transfers are a manager job, so staff never see that link
         expect(getLinksForRole("INVENTORY_MANAGER").map((link) => link.label)).toContain("Transfers");
-        expect(getLinksForRole("SUPPLIER")).toEqual([]);
+        // A supplier user sees only the portal: their purchase orders
+        expect(getLinksForRole("SUPPLIER").map((link) => link.label)).toEqual(["Purchases"]);
     });
 
     test("edit rights match the backend: admin edits the catalog, admin + manager edit warehouses", () => {
@@ -22,13 +24,16 @@ describe("navigation", () => {
         expect(canEdit("orders", "STAFF")).toBe(true);
         expect(canEdit("orders", "INVENTORY_MANAGER")).toBe(false);
         expect(canEdit("fulfillment", "INVENTORY_MANAGER")).toBe(false);
+        expect(canEdit("suppliers", "INVENTORY_MANAGER")).toBe(true);
+        expect(canEdit("suppliers", "STAFF")).toBe(false);
+        expect(canEdit("purchases", "SUPPLIER")).toBe(false);
         expect(canEdit("nothing", "ADMIN")).toBe(false);
     });
 
     test("home page after login depends on the role", () => {
         expect(getHomePath("ADMIN")).toBe("/dashboard");
         expect(getHomePath("INVENTORY_MANAGER")).toBe("/dashboard");
-        expect(getHomePath("SUPPLIER")).toBe("/profile");
+        expect(getHomePath("SUPPLIER")).toBe("/purchases");
     });
 });
 

@@ -23,6 +23,10 @@ import OrdersPage from "../pages/app/OrdersPage";
 import OrderFormPage from "../pages/app/OrderFormPage";
 import OrderDetailPage from "../pages/app/OrderDetailPage";
 import FulfillmentPage from "../pages/app/FulfillmentPage";
+import SuppliersPage from "../pages/app/SuppliersPage";
+import PurchasesPage from "../pages/app/PurchasesPage";
+import PurchaseFormPage from "../pages/app/PurchaseFormPage";
+import PurchaseDetailPage from "../pages/app/PurchaseDetailPage";
 
 // Every URL in the app.
 //  - Public pages share PublicLayout (website header + footer)
@@ -141,6 +145,46 @@ const AppRoutes = () => {
                     element={
                         <ProtectedRoute roles={PAGE_ACCESS.fulfillment}>
                             <FulfillmentPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/suppliers"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.suppliers}>
+                            <SuppliersPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/purchases"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.purchases}>
+                            <PurchasesPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/purchases/new"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.purchaseForm}>
+                            <PurchaseFormPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/purchases/:id"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.purchases}>
+                            <PurchaseDetailPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/purchases/:id/edit"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.purchaseForm}>
+                            <PurchaseFormPage />
                         </ProtectedRoute>
                     }
                 />
