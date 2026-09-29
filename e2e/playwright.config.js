@@ -49,6 +49,10 @@ module.exports = defineConfig({
                 ADMIN_EMAIL: ADMIN.email,
                 ADMIN_PASSWORD: ADMIN.password,
                 REPORT_UTC_OFFSET: "+05:30",
+                // Login protection: the per-ACCOUNT rule stays at the real default (5 wrong passwords, 15 minutes) because
+                // tests exercise it; the per-ADDRESS limit is raised because the whole suite runs from one machine and
+                // deliberately makes many wrong-password logins (the address rule is covered by the backend tests)
+                LOGIN_IP_MAX_FAILURES: "100000",
                 NODE_ENV: "development"
             }
         },

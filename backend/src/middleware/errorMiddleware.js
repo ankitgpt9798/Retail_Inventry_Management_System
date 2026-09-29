@@ -63,6 +63,11 @@ const errorHandler = (err, req, res, next) => {
         console.error(err);
     }
 
+    // "Try again in N seconds": a standard header that clients and proxies understand (used by the login lock)
+    if (err.retryAfterSeconds) {
+        res.set("Retry-After", String(err.retryAfterSeconds));
+    }
+
     const response = { success: false, message, error: errorCode };
     if (errors) {
         response.errors = errors;

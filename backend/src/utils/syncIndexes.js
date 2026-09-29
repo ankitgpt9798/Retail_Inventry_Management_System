@@ -19,6 +19,7 @@ const models = [
     require("../models/PurchaseOrder"),
     require("../models/Notification"),
     require("../models/AuditLog"),
+    require("../models/LoginAttempt"),
     require("../models/Counter")
 ];
 

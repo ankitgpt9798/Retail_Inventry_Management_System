@@ -364,6 +364,15 @@ Read-only; built with MongoDB **aggregation pipelines** (`$match` → `$group` �
 - Monthly series are zero-filled (charts need every month). Default range: last 6 months.
 - Dashboard: STAFF may view (counts/trends only); detailed reports: ADMIN + INVENTORY_MANAGER.
 
+### Login protection (E2E finding L2)
+Password guessing is slowed by two counters kept in the `loginattempts` collection (`models/LoginAttempt.js`; keys `email:<address>` and `ip:<address>`; removed automatically by a TTL index): **5 wrong passwords lock an account for 15 minutes, and 20 failures from one network address lock that address for 15 minutes.** All four numbers are configurable (`LOGIN_MAX_FAILED_ATTEMPTS`, `LOGIN_LOCK_MINUTES`, `LOGIN_IP_MAX_FAILURES`, `LOGIN_IP_WINDOW_MINUTES`; see `.env.example`).
+- **How an attempt goes** (`services/loginThrottleService.js`, used by `authService.loginUser`): (1) *claim a slot first*: one atomic increment on both counters. If either key is locked, or the claim is over the limit, answer **429** `TOO_MANY_ATTEMPTS` with a `Retry-After` header *before the password is checked*. A locked account therefore refuses even the right password, and 50 simultaneous guesses can only use the first 5 slots. (2) Check the password. (3) A wrong password keeps its slot and locks the key when it used the last one. A right password clears the account's count and gives the address its slot back, so only *failures* count against an address and many staff logging in properly behind one office address never add up.
+- **No account enumeration:** an unknown email gets a counter and a lock exactly like a real one, and the message is the same whether the account or the address is locked.
+- **Unlocking:** the lock ends by itself; an admin password reset lifts it at once.
+- **Audit log:** `LOGIN_FAILED` (real accounts, with the address) and `ACCOUNT_LOCKED` (the moment it locks). Attempts refused while locked are not logged, so an attack can't flood the log.
+- **Deployment:** behind a reverse proxy set `TRUST_PROXY` (number of proxies, usually 1), otherwise every user shares the proxy's address and its limit (`app.js`).
+- **Known trade-off:** someone can keep a known account locked by repeatedly guessing it (the usual price of account lockout). The lock is short, the admin can lift it, and the audit log shows where the guesses came from.
+
 ## Audit Log (Step 16)
 - Written by `auditService.logAction()` from every module since Step 4: `{ user, action, entityType, entityId, oldValue, newValue, metadata, createdAt }`. Updates store only changed fields (`getChanges`). A failed audit write never breaks the business action.
 - Record types (`AUDIT_ENTITY_TYPES`): User, Category, Product, Warehouse, Inventory, StockTransfer, Supplier, PurchaseOrder, Order.
@@ -488,7 +497,7 @@ The real React app in Chrome against the real Express API and a real MongoDB, dr
 - **Isolation:** its own database (`retail_inventory_e2e`, dropped every run; the reset script refuses any other name) and its own ports (API 3100, app 5273). Settings go in as environment variables, so `.env` files are untouched. Both addresses use `localhost` because the login cookie is `SameSite=Strict`.
 - **Coverage (phases):** 0 setup · 1 authentication, HttpOnly cookie, sessions, CORS, every page and API endpoint for every role · 2 catalog and warehouses · 3 inventory and transfers · 4 orders and fulfillment · 5 suppliers, purchases, supplier portal · 6 notifications, users, audit log · 7 reports and dashboard against hand-computed numbers · 8 two cross-module journeys · plus security, responsive layout and size limits.
 - **Method:** each test creates its own uniquely named data through the API, does the important steps through the real screens, then checks the database (through the API) as well as the screen. Race conditions are tested by firing two requests at once. Expected numbers are worked out by hand from the documented definitions, never read from the code under test.
-- **Findings** are recorded as `Fn` tests marked `test.fail`: they pass while the bug exists and fail loudly once it is fixed. See the table in `e2e/README.md` (F1–F6 and L3 fixed; L1 and L2 open).
+- **Findings** are recorded as `Fn` tests marked `test.fail`: they pass while the bug exists and fail loudly once it is fixed. See the table in `e2e/README.md` (F1–F6, L2 and L3 fixed; L1 open).
 - One-off data fix after F2: `cd backend && npm run db:fix-notification-links` (rewrites old notification links; idempotent).
 - Run: `cd e2e && npm test` (about 12 minutes; a single file under a minute).
 - Every module: Jest unit tests for services, Supertest API tests for routes, Postman collection.

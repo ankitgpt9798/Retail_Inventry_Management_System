@@ -6,6 +6,7 @@ const escapeRegex = require("../utils/escapeRegex");
 const { ROLES, USER_STATUS, RECORD_STATUS } = require("../utils/constants");
 const { hashPassword } = require("./authService");
 const { logAction } = require("./auditService");
+const { clearAccount } = require("./loginThrottleService");
 
 // ---------- Small helpers used by the functions below ----------
 
@@ -215,6 +216,9 @@ const resetUserPassword = async (userId, newPassword, adminUser) => {
     // Log the user out on every device (their old tokens have the old version)
     user.tokenVersion += 1;
     await user.save();
+
+    // Someone locked out by too many wrong passwords gets back in through the admin: lift the lock
+    await clearAccount(user.email);
 
     await logAction({
         userId: adminUser._id,

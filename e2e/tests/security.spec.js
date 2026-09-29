@@ -137,22 +137,8 @@ test.describe("what the browser does with hostile data", () => {
     });
 });
 
-test.describe("observations: behaviour pinned down, not yet a guarantee", () => {
-    // OBSERVATION L2. There is no rate limit or lockout on the login endpoint, so a password can be guessed
-    // without limit. This pins the current behaviour; if a limiter is added, this test fails and should be updated.
-    test("L2: repeated wrong passwords are never slowed down or locked out (no rate limiting yet)", async () => {
-        const user = await makeUser();
-        const anonymous = await anonymousApi();
-        const statuses = [];
-        for (let attempt = 0; attempt < 15; attempt++) {
-            statuses.push((await anonymous.post("auth/login", { data: { email: user.email, password: `Wrong${attempt}Pass` } })).status());
-        }
-        expect(new Set(statuses)).toEqual(new Set([401])); // never 429 (too many requests), never a lock
-        const correct = await anonymous.post("auth/login", { data: { email: user.email, password: user.password } });
-        expect(correct.status()).toBe(200); // ...and the right password still works straight after
-        test.info().annotations.push({ type: "finding L2", description: "no login rate limiting or lockout" });
-        await anonymous.dispose();
-    });
+test.describe("other security behaviour", () => {
+    // (Was OBSERVATION L2, no rate limiting on login: fixed. See login-protection.spec.js.)
 
     // Was OBSERVATION L3: the API announced its software (X-Powered-By: Express) and sent none of the usual protective
     // headers. Fixed in app.js with helmet (plus Cache-Control: no-store on API answers). HSTS is production-only,

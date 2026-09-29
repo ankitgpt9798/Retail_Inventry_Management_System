@@ -44,6 +44,20 @@ describe("LoginPage", () => {
         expect(screen.getByTestId("location")).toHaveTextContent("/login");
     });
 
+    test("locked after too many wrong passwords (429) → the message says when to try again, and the form stays usable", async () => {
+        api.post.mockRejectedValue({
+            response: { status: 429, data: { message: "Too many failed login attempts. Try again in 15 minutes.", error: "TOO_MANY_ATTEMPTS" } }
+        });
+        const user = userEvent.setup();
+        renderWithProviders(<LoginPage />, { preloadedState: authState(null), route: "/login", path: "/login" });
+
+        await fillAndSubmit(user, "ravi@shop.com", "RightPassword1");
+
+        expect(await screen.findByRole("alert")).toHaveTextContent("Too many failed login attempts. Try again in 15 minutes.");
+        expect(screen.getByTestId("location")).toHaveTextContent("/login"); // not logged in, not redirected
+        expect(screen.getByRole("button", { name: /log in/i })).toBeEnabled();
+    });
+
     test("success → sends the credentials and goes to the role's home page", async () => {
         api.post.mockResolvedValue({ data: { data: { user: { name: "Ravi", role: "INVENTORY_MANAGER" } } } });
         const user = userEvent.setup();

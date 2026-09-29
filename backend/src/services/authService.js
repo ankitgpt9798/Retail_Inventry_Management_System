@@ -4,6 +4,7 @@ const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const { ROLES, USER_STATUS } = require("../utils/constants");
 const { logAction } = require("./auditService");
+const loginThrottle = require("./loginThrottleService");
 
 // How many times bcrypt re-hashes. Higher = slower = harder to brute-force.
 // 10 takes roughly 100ms, which is fine for a login but painful for an attacker.
@@ -58,19 +59,36 @@ const registerUser = async ({ name, email, password, phone }) => {
 
 // requestInfo = { ip, userAgent }, stored in the audit log
 const loginUser = async ({ email, password }, requestInfo) => {
+    // Claim an attempt slot BEFORE looking at anything else. Too many wrong passwords on this account, or from
+    // this address, means 429 right here: the password is never checked, so a locked account can't be opened
+    // even with the right password, and guesses sent all at once can't get past the limit (loginThrottleService).
+    const attempt = await loginThrottle.beginAttempt(email, requestInfo.ip);
+
     // Password has select: false in the model, so we must ask for it here
     const user = await User.findOne({ email }).select("+password");
 
     // Same message for "no such email" and "wrong password", so an attacker
     // cannot use the login form to find out which emails have accounts.
+    // Both use up an attempt slot in exactly the same way.
     if (!user) {
+        await loginThrottle.failAttempt(email, requestInfo.ip, attempt);
         throw new AppError(401, "INVALID_CREDENTIALS", "Invalid email or password");
     }
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
+        const { accountLocked } = await loginThrottle.failAttempt(email, requestInfo.ip, attempt);
+
+        // A trail for the admin: who is being guessed at, from where, and when an account got locked
+        await logAction({ userId: user._id, action: "LOGIN_FAILED", entityType: "User", entityId: user._id, metadata: requestInfo });
+        if (accountLocked) {
+            await logAction({ userId: user._id, action: "ACCOUNT_LOCKED", entityType: "User", entityId: user._id, metadata: requestInfo });
+        }
         throw new AppError(401, "INVALID_CREDENTIALS", "Invalid email or password");
     }
+
+    // The right password: the earlier failures no longer count against this account
+    await loginThrottle.succeedAttempt(email, requestInfo.ip);
 
     // Status is checked only after the password is correct,
     // so strangers can't learn whether an account is pending/disabled.

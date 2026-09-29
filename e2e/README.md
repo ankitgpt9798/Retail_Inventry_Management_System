@@ -44,7 +44,8 @@ responsive-layout sweep); a single file takes under a minute.
 | `tests/audit.spec.js` | 6 | the audit log matches what happened and cannot be changed |
 | `tests/reports.spec.js` | 7 | every report and the dashboard against numbers worked out by hand |
 | `tests/journeys.spec.js` | 8 | two long journeys through the whole system, five people, everything must add up |
-| `tests/security.spec.js` | x | injection, malformed input, XSS, mass assignment, and pinned security observations |
+| `tests/security.spec.js` | x | injection, malformed input, XSS, mass assignment, protective headers |
+| `tests/login-protection.spec.js` | x | password-guessing lockout: accounts, unknown emails, parallel guesses, audit trail, admin unlock |
 | `tests/layout.spec.js` | x | no sideways scrolling at phone and tablet sizes, on every page; the phone menu |
 | `tests/zz-limits.spec.js` | x | size limits (runs last: it creates 105 products) |
 | `helpers/` | | `apiAs("admin")`, `makeProduct()`, `flows.js` (multi-step business flows), UI helpers |
@@ -63,7 +64,7 @@ and starts failing loudly the day the bug is fixed, which is the reminder to del
 | F5 | **Fixed** | A request body over 100 KB was answered `500 SERVER_ERROR` (and logged as a server fault) instead of `413`; the error handler didn't know that case. `errorMiddleware.js` now answers `413 PAYLOAD_TOO_LARGE` with no error log. | `security.spec.js`, backend `auth.test.js` |
 | F6 | **Fixed** | On a phone, the menu stayed open on top of the page you just opened (the desktop drop-downs closed themselves; the phone menu did not). The phone menu is now its own `PhoneMenu` component in `AppNavbar.jsx`, rebuilt closed after every page change like the desktop groups. | `layout.spec.js`, `AppNavbar.test.jsx` |
 | L1 | Known limitation (design) | Logout only removes the cookie in the browser. A copy of the token stays valid until it expires (about a day) or the password changes (stateless JWT). | `auth.spec.js`, pinned |
-| L2 | Known gap | No rate limiting or lockout on login: unlimited password guesses. | `security.spec.js`, pinned |
+| L2 | **Fixed** | Login had no rate limit or lockout: unlimited password guesses. Now 5 wrong passwords lock an account for 15 minutes (even the right password is refused meanwhile: `429` with `Retry-After`) and 20 failures from one network address lock that address. An attempt slot is claimed atomically before the password is checked, so guesses sent all at once can't get past the limit; unknown emails behave identically (no way to tell who has an account); a good login clears the count; an admin password reset lifts a lock; `LOGIN_FAILED` and `ACCOUNT_LOCKED` go to the audit log. | `login-protection.spec.js`, backend `loginLimits.test.js` |
 | L3 | **Fixed** | The API sent `X-Powered-By: Express` and none of the usual protective headers. `backend/src/app.js` now uses helmet (nosniff, frame and referrer policies, CSP `frame-ancestors`, cross-origin-resource-policy `same-site`; HSTS only in production) and adds `Cache-Control: no-store` to every API answer. | `security.spec.js`, backend `health.test.js` |
 
 ### Things that were checked and held up

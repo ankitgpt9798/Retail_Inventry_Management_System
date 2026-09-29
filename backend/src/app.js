@@ -19,6 +19,14 @@ const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
 
+// Behind a reverse proxy (nginx, a load balancer, a hosting platform) every request seems to come from the
+// PROXY, so the per-address login limit would treat all users as one person. Set TRUST_PROXY to the number of
+// proxies in front of the API (usually 1) so the real address is used. Left unset, the address is used as it is.
+if (process.env.TRUST_PROXY) {
+    const hops = Number(process.env.TRUST_PROXY);
+    app.set("trust proxy", Number.isNaN(hops) ? process.env.TRUST_PROXY : hops);
+}
+
 // Protective response headers on EVERY response (this comes first so errors and CORS answers carry them too).
 // helmet also removes "X-Powered-By: Express", which only tells an attacker what software to target.
 app.use(
