@@ -34,6 +34,10 @@ const goToNav = async (page, group, link) => {
     await bar.getByRole("link", { name: link, exact: true }).click();
 };
 
+// The green confirmation banner with this text (e.g. "Category created."). Looked up by its text because the
+// loading spinner also has role="status", so a bare getByRole("status") can match two things at once.
+const flash = (page, text) => page.getByRole("status").filter({ hasText: text });
+
 // The token cookie the browser currently holds for the app (undefined = not logged in)
 const tokenCookie = async (page) => {
     const cookies = await page.context().cookies();
@@ -50,4 +54,4 @@ const makeUser = async (overrides = {}) => {
     return { ...user, _id: created._id };
 };
 
-module.exports = { unique, submitLoginForm, loginViaUi, logoutViaUi, goToNav, tokenCookie, makeUser };
+module.exports = { unique, submitLoginForm, loginViaUi, logoutViaUi, goToNav, flash, tokenCookie, makeUser };

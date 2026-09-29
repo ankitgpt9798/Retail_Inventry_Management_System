@@ -483,6 +483,13 @@ Logout:    res.clearCookie("token")
 _Step 17._
 
 ## Testing Strategy
+### End-to-end tests (`e2e/`)
+The real React app in Chrome against the real Express API and a real MongoDB, driven by Playwright. Details, the file map and the findings table are in `e2e/README.md`.
+- **Isolation:** its own database (`retail_inventory_e2e`, dropped every run; the reset script refuses any other name) and its own ports (API 3100, app 5273). Settings go in as environment variables, so `.env` files are untouched. Both addresses use `localhost` because the login cookie is `SameSite=Strict`.
+- **Coverage (phases):** 0 setup · 1 authentication, HttpOnly cookie, sessions, CORS, every page and API endpoint for every role · 2 catalog and warehouses · 3 inventory and transfers · 4 orders and fulfillment · 5 suppliers, purchases, supplier portal · 6 notifications, users, audit log · 7 reports and dashboard against hand-computed numbers · 8 two cross-module journeys · plus security, responsive layout and size limits.
+- **Method:** each test creates its own uniquely named data through the API, does the important steps through the real screens, then checks the database (through the API) as well as the screen. Race conditions are tested by firing two requests at once. Expected numbers are worked out by hand from the documented definitions, never read from the code under test.
+- **Findings** are recorded as `Fn` tests marked `test.fail`: they pass while the bug exists and fail loudly once it is fixed. See the table in `e2e/README.md` (F1 fixed; F2–F6 and L1–L3 open).
+- Run: `cd e2e && npm test` (about 12 minutes; a single file under a minute).
 - Every module: Jest unit tests for services, Supertest API tests for routes, Postman collection.
 - Run backend tests: `cd backend && npm test`
 - `tests/unit`: no database (schema validation via `validateSync()`, later service logic)
