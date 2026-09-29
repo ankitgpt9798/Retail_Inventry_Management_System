@@ -251,13 +251,9 @@ test.describe("losing the session", () => {
         await expect(loginApi(user.email, user.password)).rejects.toThrow(/403.*deactivated/s);
     });
 
-    // FINDING F1 (a real frontend bug, reported, not fixed): the backend answers a deactivated user with 403 ACCOUNT_INACTIVE,
-    // but the frontend only ends the session on 401 (services/api.js), so the user is NOT sent to the login page:
-    // they stay inside the app looking at errors. The test below states what SHOULD happen. It is marked as an
-    // expected failure: while the bug exists it "passes as failing"; once fixed it fails loudly, so remove test.fail().
-    test("a deactivated user is sent to the login page on their next action", async ({ page }) => {
-        test.fail(true, "F1: the frontend only handles 401, but a deactivated account gets 403 ACCOUNT_INACTIVE");
-
+    // Was FINDING F1: the backend answers a deactivated user with 403 ACCOUNT_INACTIVE, and the frontend used to end
+    // the session only on 401, leaving them inside the app with a dead-end error. Fixed in services/api.js.
+    test("a deactivated user is sent to the login page on their next action, with the reason", async ({ page }) => {
         const user = await makeUser();
         await loginViaUi(page, user);
 
@@ -266,19 +262,25 @@ test.describe("losing the session", () => {
         await admin.dispose();
 
         await goToNav(page, "Catalog", "Products");
-        await expect(page).toHaveURL(/\/login$/, { timeout: 4000 });
+
+        await expect(page).toHaveURL(/\/login$/);
+        await expect(page.getByRole("status")).toContainText("not active");
+        expect(await tokenCookie(page)).toBeDefined(); // the browser still holds the (now useless) cookie; the API refuses it
+        // ...and logging in again is refused with a clear reason
+        await submitLoginForm(page, user);
+        await expect(page.getByRole("alert")).toContainText("deactivated");
     });
 
-    test("meanwhile a deactivated user is left in the app with a dead-end account-not-active error (current behaviour of F1)", async ({ page }) => {
-        const user = await makeUser();
-        await loginViaUi(page, user);
+    test("an ordinary permission error (403 for your role) does NOT log you out", async ({ page }) => {
+        await loginViaUi(page, USERS.staff);
 
-        const admin = await apiAs("admin");
-        await admin.delete(`users/${user._id}`);
-        await admin.dispose();
+        // Staff may not list users: the API answers 403, and the person must stay logged in
+        const status = await page.evaluate(async (apiUrl) => (await fetch(`${apiUrl}/users`, { credentials: "include" })).status, API_URL);
+        expect(status).toBe(403);
 
-        await goToNav(page, "Catalog", "Products");
-        await expect(page.getByRole("alert").filter({ hasText: /not active/i })).toBeVisible();
+        await page.reload();
+        await expect(page.getByRole("navigation", { name: "App" })).toBeVisible();
+        expect(await tokenCookie(page)).toBeDefined();
     });
 });
 

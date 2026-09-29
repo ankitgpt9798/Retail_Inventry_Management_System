@@ -46,6 +46,20 @@ describe("401 interceptor", () => {
         expect(onSessionExpired).not.toHaveBeenCalled();
     });
 
+    test("a 403 ACCOUNT_INACTIVE (an admin deactivated the account) also ends the session", async () => {
+        answerWith(403, { message: "Your account is not active", error: "ACCOUNT_INACTIVE" });
+
+        await expect(api.get("/products")).rejects.toThrow();
+        expect(onSessionExpired).toHaveBeenCalledWith("Your account is not active");
+    });
+
+    test("an ordinary 403 (your role can't do this) does NOT log you out", async () => {
+        answerWith(403, { message: "You do not have permission to do this", error: "FORBIDDEN" });
+
+        await expect(api.get("/users")).rejects.toThrow();
+        expect(onSessionExpired).not.toHaveBeenCalled();
+    });
+
     test("other errors (403, 500) don't log anyone out", async () => {
         answerWith(403, { message: "Forbidden" });
         await expect(api.get("/users")).rejects.toThrow();

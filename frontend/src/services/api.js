@@ -24,9 +24,13 @@ export const getErrorMessage = (error, fallback = "Something went wrong. Please 
     return fallback;
 };
 
-// Called once in main.jsx. If any request comes back 401 (not logged in any more —
-// session expired, password changed on another device, account deactivated…),
-// we tell the app so it can clear the user and show the login page.
+// Called once in main.jsx. If any request shows that the login is over, we tell the app
+// so it can clear the user and show the login page. That is:
+//   - 401: not logged in any more (session expired, password changed on another device, …)
+//   - 403 with the code ACCOUNT_INACTIVE: an admin deactivated this account. The backend
+//     answers 403 here (the person IS known, just not allowed in), and without this check they
+//     would stay inside the app looking at a dead-end error.
+// Every other 403 ("your role can't do this") must NOT log anyone out.
 export const setupInterceptors = (onSessionExpired) => {
     api.interceptors.response.use(
         (response) => response,
@@ -37,7 +41,9 @@ export const setupInterceptors = (onSessionExpired) => {
             // "wrong password" are reported), so they must not trigger a logout
             const isAuthRequest = url.includes("/auth/me") || url.includes("/auth/login");
 
-            if (status === 401 && !isAuthRequest) {
+            const isDeactivated = status === 403 && error.response.data?.error === "ACCOUNT_INACTIVE";
+
+            if ((status === 401 || isDeactivated) && !isAuthRequest) {
                 onSessionExpired(error.response.data?.message);
             }
             return Promise.reject(error);

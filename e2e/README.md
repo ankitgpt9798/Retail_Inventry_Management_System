@@ -38,5 +38,5 @@ Needs MongoDB running on `127.0.0.1:27017`. Takes about 2 minutes.
 
 | # | What | Where it shows |
 |---|---|---|
-| F1 | **Bug (frontend).** A deactivated user gets `403 ACCOUNT_INACTIVE` from the API, but the app only ends the session on `401`, so they stay inside the app with a dead-end "Your account is not active" message and a useless "Try again" button. | `auth.spec.js`, marked `test.fail` until fixed |
+| F1 | **Bug (frontend), FIXED.** A deactivated user gets `403 ACCOUNT_INACTIVE` from the API, but the app only ended the session on `401`, leaving them inside the app with a dead-end "Your account is not active" message. `services/api.js` now also ends the session on that specific 403 (other 403s still don't log anyone out). | `auth.spec.js`, `api.test.js` |
 | L1 | **Known limitation (design).** Logout only removes the cookie from the browser. A copy of the token stays valid until it expires or the password changes (stateless JWT). | `auth.spec.js`, pinned by a test |
