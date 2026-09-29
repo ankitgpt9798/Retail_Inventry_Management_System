@@ -51,6 +51,12 @@ const errorHandler = (err, req, res, next) => {
         errorCode = "INVALID_JSON";
         message = "Request body is not valid JSON";
     }
+    else if (err.type === "entity.too.large") {
+        // The request body is over the size limit (100 KB by default): the caller's mistake, not a server fault
+        statusCode = 413;
+        errorCode = "PAYLOAD_TOO_LARGE";
+        message = "Request body is too large";
+    }
 
     // Log unexpected errors for the developer; the user only sees a generic message
     if (statusCode === 500) {

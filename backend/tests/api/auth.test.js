@@ -122,6 +122,21 @@ describe("POST /api/auth/register", () => {
         expect(response.status).toBe(400);
         expect(response.body.error).toBe("INVALID_JSON");
     });
+
+    test("rejects a body over the size limit with 413, not a server error", async () => {
+        const logged = jest.spyOn(console, "error").mockImplementation(() => {});
+
+        const response = await request(app)
+            .post("/api/auth/register")
+            .set("Content-Type", "application/json")
+            .send(JSON.stringify({ name: "x".repeat(200 * 1024) })); // 200 KB: over the 100 KB default
+
+        expect(response.status).toBe(413);
+        expect(response.body).toEqual({ success: false, message: "Request body is too large", error: "PAYLOAD_TOO_LARGE" });
+        // The caller's mistake is not logged as a server fault
+        expect(logged).not.toHaveBeenCalled();
+        logged.mockRestore();
+    });
 });
 
 describe("POST /api/auth/login", () => {

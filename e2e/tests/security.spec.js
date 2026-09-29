@@ -47,17 +47,16 @@ test.describe("what the API does with bad input", () => {
         await admin.dispose();
     });
 
-    // FINDING F5 (reported, not fixed): a request body over the size limit (100 KB) is a mistake by the CALLER, so the
-    // right answer is 413 "payload too large". The error handler knows about malformed JSON but not about this case,
-    // so it answers a generic 500 "Something went wrong on the server" (and logs it as a server error).
-    // Expected to fail until the error handler maps "entity.too.large" to 413.
-    test("F5: a request body that is too big is answered 413, not a server error", async () => {
-        test.fail(true, "F5: an oversized body is answered 500 instead of 413");
+    // Was FINDING F5: a request body over the size limit (100 KB) is the CALLER's mistake, so the right answer is 413,
+    // but the error handler only knew about malformed JSON and answered a generic 500 "Something went wrong on the
+    // server". Fixed in errorMiddleware.js (maps "entity.too.large" to 413 PAYLOAD_TOO_LARGE).
+    test("a request body that is too big is answered 413, not a server error", async () => {
         const admin = await apiAs("admin");
         const response = await admin.post("categories", { data: { name: "x".repeat(300_000) } });
         const text = await response.text();
-        expect(leaksInternals(text)).toBe(false); // (it does not leak: only the status is wrong)
+        expect(leaksInternals(text)).toBe(false);
         expect(response.status()).toBe(413);
+        expect(JSON.parse(text)).toMatchObject({ success: false, error: "PAYLOAD_TOO_LARGE" });
         await admin.dispose();
     });
 
