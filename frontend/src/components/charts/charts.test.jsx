@@ -57,6 +57,19 @@ describe("BarChart", () => {
         expect(container.querySelectorAll("path")).toHaveLength(3);
     });
 
+    test("a bar is announced and titled with its full name when it has one (e.g. the month WITH the year), like a line chart", async () => {
+        const monthly = [{ label: "Sept", title: "Sept 2026", value: 452300, detail: "14 orders" }, { label: "Oct", title: "Oct 2026", value: 100 }];
+        const { container } = render(<BarChart data={monthly} formatValue={formatCurrency} valueName="Revenue" ariaLabel="x" />);
+
+        expect(screen.getByRole("img", { name: "Sept 2026: ₹4,52,300.00, 14 orders" })).toBeInTheDocument();
+        // the axis keeps the short name, where space is tight
+        expect([...container.querySelectorAll("text")].map((node) => node.textContent)).toEqual(expect.arrayContaining(["Sept", "Oct"]));
+        expect([...container.querySelectorAll("text")].map((node) => node.textContent)).not.toContain("Sept 2026");
+
+        await userEvent.hover(screen.getByRole("img", { name: /^Oct 2026/ }));
+        expect(within(screen.getByRole("tooltip")).getByText("Oct 2026")).toBeInTheDocument();
+    });
+
     test("only the latest and the highest bar carry a number (the rest are in the tooltip and table)", () => {
         const { container } = render(<BarChart data={data} ariaLabel="x" />);
         const labels = [...container.querySelectorAll("text")].map((node) => node.textContent);
@@ -198,7 +211,7 @@ describe("DashboardCharts", () => {
         }
         // Purchases are all zero → an honest empty message, not a flat empty chart
         expect(within(screen.getByRole("region", { name: "Purchases by month (₹)" })).getByText("Nothing to show for this period yet.")).toBeInTheDocument();
-        expect(within(screen.getByRole("region", { name: "Revenue by month (₹)" })).getByRole("img", { name: /Sept?: ₹1,20,472.10, 1 order$/ })).toBeInTheDocument();
+        expect(within(screen.getByRole("region", { name: "Revenue by month (₹)" })).getByRole("img", { name: /Sept? 2026: ₹1,20,472.10, 1 order$/ })).toBeInTheDocument();
     });
 
     test("missing chart data never crashes the dashboard", () => {

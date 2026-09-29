@@ -299,8 +299,8 @@ test.describe("the dashboard", () => {
         expect(count).toBeGreaterThan(0);
 
         await page.goto("/dashboard");
-        // (a bar is announced with the short month name only, e.g. "Sept": see finding F4)
-        const month = new Intl.DateTimeFormat("en-IN", { month: "short" }).format(new Date());
+        // A bar is announced with the full month name, year included, like the line charts (was finding F4)
+        const month = new Intl.DateTimeFormat("en-IN", { month: "short", year: "numeric" }).format(new Date());
         const bar = page.getByRole("region", { name: "Revenue by month (₹)" }).getByRole("img", { name: `${month}: ${money(revenue)}, ${count} order${count === 1 ? "" : "s"}` });
         await expect(bar).toBeVisible();
 

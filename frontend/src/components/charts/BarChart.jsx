@@ -10,7 +10,8 @@ const GRID = { stroke: "var(--color-base-300)", strokeWidth: 1 };
 const MAX_BAR = 24; // bars are thin: at most 24px, however much room there is
 
 // One series of bars.
-//   data:        [{ label, value, detail? }]   detail = extra tooltip line, e.g. "3 orders"
+//   data:        [{ label, title?, value, detail? }]   label = short name on the axis ("Sept"), title = full name for screen
+//                readers and the tooltip ("Sept 2026"; defaults to the label), detail = extra tooltip line, e.g. "3 orders"
 //   orientation: "vertical" (columns, for time) or "horizontal" (ranked lists, long names)
 //   color:       a CSS colour, normally "var(--series-1)"
 //   formatValue: how a value is written in the tooltip and value labels
@@ -64,7 +65,7 @@ const BarChart = ({ data, orientation = "vertical", color = "var(--series-1)", f
                 {horizontal && <line x1={margin.left} x2={margin.left} y1={margin.top} y2={height - margin.bottom} style={GRID} />}
 
                 {data.map((item, index) => {
-                    const label = `${item.label}: ${formatValue(item.value)}${item.detail ? `, ${item.detail}` : ""}`;
+                    const label = `${item.title ?? item.label}: ${formatValue(item.value)}${item.detail ? `, ${item.detail}` : ""}`;
                     let mark;
                     let text;
                     let hit;
@@ -132,7 +133,7 @@ const BarChart = ({ data, orientation = "vertical", color = "var(--series-1)", f
             {hovered !== null && (
                 <ChartTooltip
                     {...anchor(hovered)}
-                    title={data[hovered].label}
+                    title={data[hovered].title ?? data[hovered].label}
                     rows={[
                         { label: valueName, value: formatValue(data[hovered].value), color },
                         ...(data[hovered].detail ? [{ label: "Note", value: data[hovered].detail }] : [])
