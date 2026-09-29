@@ -36,6 +36,24 @@ describe("AppNavbar", () => {
         expect(screen.queryByRole("link", { name: /dashboard/i })).not.toBeInTheDocument();
     });
 
+    test("the menus are rebuilt (closed) after every page change, so they don't stay open over the new page", async () => {
+        const user = userEvent.setup();
+        renderWithProviders(<AppNavbar />, { preloadedState: authState("ADMIN"), route: "/dashboard" });
+
+        const phoneMenuBefore = screen.getByLabelText("Open menu").parentElement;
+        const catalogBefore = within(screen.getByRole("navigation", { name: "App" })).getByRole("button", { name: "Catalog" }).parentElement;
+
+        // Choose a page in the phone menu: the address changes
+        await user.click(within(phoneMenuBefore).getByRole("link", { name: "Reports" }));
+        expect(screen.getByTestId("location")).toHaveTextContent("/reports");
+
+        // Both menus are brand-new elements now (a new element has no focus, so it renders closed)
+        expect(screen.getByLabelText("Open menu").parentElement).not.toBe(phoneMenuBefore);
+        expect(within(screen.getByRole("navigation", { name: "App" })).getByRole("button", { name: "Catalog" }).parentElement).not.toBe(catalogBefore);
+        // ...and the phone menu is still complete
+        expect(within(screen.getByLabelText("Open menu").parentElement).getAllByRole("link").length).toBe(13);
+    });
+
     test("related pages sit under drop-down groups, so the bar never overflows", () => {
         renderWithProviders(<AppNavbar />, { preloadedState: authState("ADMIN") });
 

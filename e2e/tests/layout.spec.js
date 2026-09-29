@@ -90,16 +90,19 @@ test.describe("the phone menu", () => {
         await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
     });
 
-    // FINDING F6 (reported, not fixed): on a phone the menu stays open, covering the new page, after you choose where
-    // to go (the desktop drop-downs close themselves after navigating; the phone menu does not). Expected to fail
-    // until the phone menu closes on navigation.
-    test("F6: the phone menu closes after you choose a page", async ({ page }) => {
-        test.fail(true, "F6: the phone menu stays open on top of the page you just opened");
+    // Was FINDING F6: on a phone the menu stayed open, covering the new page, after you chose where to go (the
+    // desktop drop-downs closed themselves; the phone menu did not). Fixed: the phone menu is rebuilt, closed,
+    // after every page change (AppNavbar's PhoneMenu).
+    test("the phone menu closes after you choose a page, and opens again when asked", async ({ page }) => {
         await page.goto("/dashboard");
         await page.getByLabel("Open menu").click();
         await page.locator(".dropdown-content.menu").first().getByRole("link", { name: "Reports", exact: true }).click();
         await expect(page).toHaveURL(/\/reports$/);
-        await expect(page.locator(".dropdown-content.menu").first(), "the menu should have closed").toBeHidden({ timeout: 3000 });
+        await expect(page.locator(".dropdown-content.menu").first(), "the menu should have closed").toBeHidden();
+
+        // ...and it still works the next time it is needed
+        await page.getByLabel("Open menu").click();
+        await expect(page.locator(".dropdown-content.menu").first().getByRole("link", { name: "Orders", exact: true })).toBeVisible();
     });
 
     test("a wide table scrolls inside its own box instead of stretching the page", async ({ page }) => {

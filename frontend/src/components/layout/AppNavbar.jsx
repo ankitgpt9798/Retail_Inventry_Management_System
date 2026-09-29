@@ -43,6 +43,29 @@ const NavGroup = ({ label, links }) => {
     );
 };
 
+// The menu button for phones: every link in one list. Like NavGroup it opens while it has focus, and a new key
+// after every page change builds it again CLOSED, so it doesn't stay open on top of the page you just chose.
+const PhoneMenu = ({ links }) => {
+    const { pathname } = useLocation();
+
+    return (
+        <div key={pathname} className="dropdown lg:hidden">
+            <div tabIndex={0} role="button" className="btn btn-ghost btn-square btn-sm" aria-label="Open menu">
+                <Menu size={20} />
+            </div>
+            <ul tabIndex={0} className="dropdown-content menu z-40 mt-2 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
+                {links.map((link) => (
+                    <li key={link.to}>
+                        <NavLink to={link.to}>
+                            <link.icon size={16} aria-hidden="true" /> {link.label}
+                        </NavLink>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
 // The staff app's top navigation. Links depend on the user's role
 // (see utils/navigation.js), so e.g. a supplier never sees "Inventory".
 const AppNavbar = () => {
@@ -60,22 +83,7 @@ const AppNavbar = () => {
         <header className="sticky top-0 z-30 border-b border-base-300 bg-base-100/95 backdrop-blur">
             <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
                 {/* Phone menu */}
-                {links.length > 0 && (
-                    <div className="dropdown lg:hidden">
-                        <div tabIndex={0} role="button" className="btn btn-ghost btn-square btn-sm" aria-label="Open menu">
-                            <Menu size={20} />
-                        </div>
-                        <ul tabIndex={0} className="dropdown-content menu z-40 mt-2 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
-                            {links.map((link) => (
-                                <li key={link.to}>
-                                    <NavLink to={link.to}>
-                                        <link.icon size={16} aria-hidden="true" /> {link.label}
-                                    </NavLink>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
+                {links.length > 0 && <PhoneMenu links={links} />}
 
                 <Logo to={getHomePath(user.role)} />
 
