@@ -1,11 +1,20 @@
-import { getHomePath, getLinksForRole } from "./navigation";
+import { canEdit, getHomePath, getLinksForRole } from "./navigation";
 import { formatRole } from "./roles";
 import { formatCurrency, formatNumber, greeting } from "./format";
 
 describe("navigation", () => {
-    test("staff roles see the Dashboard link; suppliers don't", () => {
-        expect(getLinksForRole("STAFF").map((link) => link.label)).toEqual(["Dashboard"]);
+    test("staff roles see the catalog links; suppliers see none", () => {
+        expect(getLinksForRole("STAFF").map((link) => link.label)).toEqual(["Dashboard", "Products", "Categories", "Warehouses"]);
         expect(getLinksForRole("SUPPLIER")).toEqual([]);
+    });
+
+    test("edit rights match the backend: admin edits the catalog, admin + manager edit warehouses", () => {
+        expect(canEdit("products", "ADMIN")).toBe(true);
+        expect(canEdit("products", "INVENTORY_MANAGER")).toBe(false);
+        expect(canEdit("categories", "STAFF")).toBe(false);
+        expect(canEdit("warehouses", "INVENTORY_MANAGER")).toBe(true);
+        expect(canEdit("warehouses", "STAFF")).toBe(false);
+        expect(canEdit("nothing", "ADMIN")).toBe(false);
     });
 
     test("home page after login depends on the role", () => {

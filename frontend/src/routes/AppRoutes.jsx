@@ -13,6 +13,9 @@ import RegisterPage from "../pages/public/RegisterPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import DashboardPage from "../pages/app/DashboardPage";
 import ProfilePage from "../pages/app/ProfilePage";
+import ProductsPage from "../pages/app/ProductsPage";
+import CategoriesPage from "../pages/app/CategoriesPage";
+import WarehousesPage from "../pages/app/WarehousesPage";
 
 // Every URL in the app.
 //  - Public pages share PublicLayout (website header + footer)
@@ -43,6 +46,30 @@ const AppRoutes = () => {
                     element={
                         <ProtectedRoute roles={PAGE_ACCESS.dashboard}>
                             <DashboardPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/products"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.products}>
+                            <ProductsPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/categories"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.categories}>
+                            <CategoriesPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/warehouses"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.warehouses}>
+                            <WarehousesPage />
                         </ProtectedRoute>
                     }
                 />

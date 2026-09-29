@@ -390,12 +390,20 @@ Password change → backend clears cookie → loggedOutWithMessage → /login
 
 **Frontend testing:** Vitest + React Testing Library + user-event; API mocked with `vi.mock("../services/api")` (real `getErrorMessage` kept); `renderWithProviders(ui, { preloadedState, route, path })`. Mount the component at its real `path` — mounting it at `*` makes redirecting components loop forever (found and fixed in 17.1). `services/api.test.js` tests the real interceptor with a fake Axios adapter. Run: `cd frontend && npm test`.
 
+**Catalog pages (17.2):** `/products`, `/categories`, `/warehouses` — one list page each, with create/edit forms in pop-ups (`components/catalog/*Form.jsx`).
+- Shared pieces: `hooks/useList` (fetch + reload on filter change, empty filters left out of the URL), `hooks/useDebounce` (search waits 400 ms), `Pagination`, `ListToolbar`/`FilterSelect`, `Modal`, `ConfirmModal` (shows the server refusal reason, e.g. warehouse still holds stock), `StatusBadge`, `SelectField`.
+- Permissions: `PAGE_ACCESS` = who may open a page; `EDIT_ACCESS` + `canEdit(page, role)` = who sees create/edit/deactivate buttons. Products & categories: admin edits; warehouses: admin + manager edit; staff view only. Backend still enforces.
+- Deactivate = confirm pop-up → `DELETE`; inactive rows get a Reactivate button (`PUT { status: "ACTIVE" }`).
+- Warehouse manager drop-down is shown to admins only (listing users is admin-only in the backend); for managers the field is hidden and `manager` is not sent, so it stays unchanged.
+- Limitation: category drop-downs load up to 100 categories (backend page-size cap).
+
 **Frontend build parts**
 | Part | Scope | Status |
 |---|---|---|
 | 17.1 | Setup, API client, auth store, public site, login/register, protected routes, app layout (nav, bell, user menu), dashboard KPIs, profile | Done (38 tests) |
-| 17.2 | Products, categories, warehouses | Next |
-| 17.3 | Inventory, stock-in/out, low stock, transfers | |
+| 17.2 | Products, categories, warehouses | Done (70 frontend tests in total) |
+
+| 17.3 | Inventory, stock-in/out, low stock, transfers | Next |
 | 17.4 | Orders + fulfillment | |
 | 17.5 | Suppliers, purchases, supplier portal | |
 | 17.6 | Dashboard charts, reports, notifications page, users, audit log, code-splitting | |
@@ -470,7 +478,7 @@ _Step 17._
 | 14. Notifications API (list, unread count, mark read) | Done |
 | 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done |
 | 16. Audit log API | Done (450 tests passing) — **backend complete** |
-| 17. Frontend (public website + staff app) | In progress — Part 17.1 done (38 frontend tests) |
+| 17. Frontend (public website + staff app) | In progress — Parts 17.1–17.2 done (70 frontend tests) |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.
