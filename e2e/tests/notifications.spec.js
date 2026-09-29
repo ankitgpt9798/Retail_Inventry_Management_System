@@ -136,17 +136,15 @@ test.describe("the inbox", () => {
 });
 
 // ======================================================================================
-// FINDING F2 (reported, not fixed): the backend puts these addresses in notifications, and the app has no page there:
-//     low stock  → /inventory/<id>              transfers → /inventory/transfers/<id>
-// A logged-in user who clicks such a notification lands on "Page not found". This checks EVERY kind of link the
-// system produces against the app's real pages. Expected failure until the links (or the routes) are fixed.
+// Was FINDING F2: low-stock notifications linked to /inventory/<id> and transfer notifications to
+// /inventory/transfers/<id>, neither of which is a page in the app, so clicking them landed on "Page not found".
+// Fixed at the source (the links are now /inventory and /transfers). This checks EVERY kind of link the system
+// produces against the app's real pages, so a wrong link can't come back unnoticed.
 test.describe("where notifications lead", () => {
     // The pages that exist in the app (written by hand from the page list, not read from the app's route table)
     const REAL_PAGES = [/^\/orders\/[0-9a-f]{24}$/, /^\/purchases\/[0-9a-f]{24}$/, /^\/inventory$/, /^\/transfers$/, /^\/fulfillment$/, /^\/products$/];
 
     test("every link in every kind of notification opens a real page", async ({ browser }) => {
-        test.fail(true, "F2: low-stock and transfer notifications link to addresses that are not pages in the app");
-
         // Produce one notification of each kind that carries a link
         const product = await makeProduct();
         const source = await makeWarehouse();

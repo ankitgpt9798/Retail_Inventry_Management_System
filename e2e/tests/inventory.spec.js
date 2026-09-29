@@ -240,12 +240,9 @@ test.describe("reorder level and low-stock alerts", () => {
         await nehaContext.close();
     });
 
-    // FINDING F2 (reported, not fixed): the backend puts the link /inventory/<id> in every low-stock notification,
-    // but the app has no page at that address (the inventory list is /inventory), so clicking the notification
-    // lands on the "page not found" screen. Expected failure until the link or the route is fixed.
+    // Was FINDING F2: low-stock notifications linked to /inventory/<id>, a page the app doesn't have, so clicking
+    // one landed on "Page not found". Fixed at the source: the link is now /inventory (the stock list).
     test("clicking a low-stock notification opens the inventory page", async ({ browser }) => {
-        test.fail(true, "F2: the notification links to /inventory/<id>, which is not a page in the app");
-
         const product = await makeProduct();
         const warehouse = await makeWarehouse();
         await stockIn({ product, warehouse, quantity: 30 });
@@ -260,7 +257,8 @@ test.describe("reorder level and low-stock alerts", () => {
         await page.goto("/notifications");
         await page.getByRole("listitem").filter({ hasText: product.sku }).getByText("Low stock", { exact: true }).first().click();
 
-        await expect(page.getByRole("heading", { level: 1, name: "Inventory" })).toBeVisible({ timeout: 4000 });
+        await expect(page).toHaveURL(/\/inventory$/);
+        await expect(page.getByRole("heading", { level: 1, name: "Inventory" })).toBeVisible();
         await context.close();
     });
 });

@@ -96,7 +96,8 @@ const auditStatusChange = async (transfer, action, fromStatus, userId, extra = {
     });
 };
 
-const transferLink = (transfer) => `/inventory/transfers/${transfer._id}`;
+// The app has no page per transfer: the transfers list is the page to open
+const transferLink = () => "/transfers";
 
 // ---------- Reads ----------
 

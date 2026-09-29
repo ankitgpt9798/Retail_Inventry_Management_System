@@ -120,7 +120,8 @@ const sendLowStockAlert = async (inventory, product, warehouse) => {
         title: "Low stock",
         message: `${product.name} (${product.sku}) is below reorder level in ${warehouse.code}: ` +
             `${getAvailable(inventory)} available, reorder level ${inventory.reorderLevel}.`,
-        link: `/inventory/${inventory._id}`
+        // The app has no page per stock record: the stock list is the page to open
+        link: "/inventory"
     });
 };
 

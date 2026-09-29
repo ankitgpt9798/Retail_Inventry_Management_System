@@ -256,7 +256,8 @@ describe("End to end with a real event", () => {
             message: "Keyboard K100 (KEY-K100) is below reorder level in NOI-01: 17 available, reorder level 20.",
             isRead: false
         });
-        expect(ravisInbox.body.data.notifications[0].link).toMatch(/^\/inventory\/[0-9a-f]{24}$/);
+        // A page that exists in the app (there is no page per stock record)
+        expect(ravisInbox.body.data.notifications[0].link).toBe("/inventory");
         expect(meenasCount.body.data.unreadCount).toBe(1);
     });
 });

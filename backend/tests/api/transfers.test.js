@@ -111,6 +111,8 @@ describe("POST /api/transfers (request)", () => {
 
         expect(notifications.map((n) => n.recipient.name).sort()).toEqual(["Admin", "Meena"]);
         expect(notifications[0].message).toBe("TRF-000001: 30 × Dell Laptop from DEL-01 to NOI-01 needs approval.");
+        // Opens a page that exists in the app (the transfers list; there is no page per transfer)
+        expect(notifications.every((n) => n.link === "/transfers")).toBe(true);
     });
 
     test("same source and destination → 422", async () => {
