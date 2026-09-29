@@ -64,7 +64,7 @@ and starts failing loudly the day the bug is fixed, which is the reminder to del
 | F6 | **Fixed** | On a phone, the menu stayed open on top of the page you just opened (the desktop drop-downs closed themselves; the phone menu did not). The phone menu is now its own `PhoneMenu` component in `AppNavbar.jsx`, rebuilt closed after every page change like the desktop groups. | `layout.spec.js`, `AppNavbar.test.jsx` |
 | L1 | Known limitation (design) | Logout only removes the cookie in the browser. A copy of the token stays valid until it expires (about a day) or the password changes (stateless JWT). | `auth.spec.js`, pinned |
 | L2 | Known gap | No rate limiting or lockout on login: unlimited password guesses. | `security.spec.js`, pinned |
-| L3 | Known gap | The API sends `X-Powered-By: Express` and none of the usual protective headers (no helmet-style hardening). | `security.spec.js`, pinned |
+| L3 | **Fixed** | The API sent `X-Powered-By: Express` and none of the usual protective headers. `backend/src/app.js` now uses helmet (nosniff, frame and referrer policies, CSP `frame-ancestors`, cross-origin-resource-policy `same-site`; HSTS only in production) and adds `Cache-Control: no-store` to every API answer. | `security.spec.js`, backend `health.test.js` |
 
 ### Things that were checked and held up
 

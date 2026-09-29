@@ -154,17 +154,44 @@ test.describe("observations: behaviour pinned down, not yet a guarantee", () => 
         await anonymous.dispose();
     });
 
-    // OBSERVATION L3. The API announces which server software it runs and sends none of the usual browser
-    // protection headers (there is no helmet-style hardening yet).
-    test("L3: the API's response headers (no hardening headers yet)", async () => {
+    // Was OBSERVATION L3: the API announced its software (X-Powered-By: Express) and sent none of the usual protective
+    // headers. Fixed in app.js with helmet (plus Cache-Control: no-store on API answers). HSTS is production-only,
+    // so it is correctly absent here over plain http.
+    test("the API hides its software and sends the standard protective headers", async () => {
         const anonymous = await request.newContext();
         const headers = (await anonymous.get(`${API_URL}/health`)).headers();
-        test.info().annotations.push({ type: "finding L3", description: `x-powered-by: ${headers["x-powered-by"] || "(absent)"}; nosniff: ${headers["x-content-type-options"] || "(absent)"}` });
 
-        expect(headers["x-powered-by"]).toBe("Express"); // information the server does not need to give away
-        expect(headers["x-content-type-options"]).toBeUndefined();
-        expect(headers["strict-transport-security"]).toBeUndefined(); // expected on plain http; matters once HTTPS is used
+        expect(headers["x-powered-by"]).toBeUndefined(); // no need to tell anyone what runs here
+        expect(headers["x-content-type-options"]).toBe("nosniff");
+        expect(headers["x-frame-options"]).toBeDefined();
+        expect(headers["referrer-policy"]).toBeDefined();
+        expect(headers["content-security-policy"]).toContain("frame-ancestors");
+        expect(headers["cross-origin-resource-policy"]).toBe("same-site");
+        expect(headers["cache-control"]).toBe("no-store");
+        expect(headers["strict-transport-security"]).toBeUndefined(); // HTTPS-only header: sent in production, not over plain http
         await anonymous.dispose();
+    });
+
+    test("the headers are also on error answers and on logged-in answers", async () => {
+        const anonymous = await anonymousApi();
+        const unauthorized = await anonymous.get("users");
+        expect(unauthorized.status()).toBe(401);
+        expect(unauthorized.headers()["x-content-type-options"]).toBe("nosniff");
+        await anonymous.dispose();
+
+        const admin = await apiAs("admin");
+        const ok = await admin.get("users?limit=1");
+        expect(ok.headers()["cache-control"]).toBe("no-store");
+        expect(ok.headers()["x-powered-by"]).toBeUndefined();
+        await admin.dispose();
+    });
+
+    test("the real app still works with the headers on: it logs in and loads data through CORS in a browser", async ({ page }) => {
+        const user = await makeUser();
+        await loginViaUi(page, user);
+        await page.goto("/products");
+        await expect(page.getByRole("heading", { level: 1, name: "Products" })).toBeVisible();
+        await expect(page.getByRole("alert")).toHaveCount(0); // no "could not load" error: the API answers were accepted by the browser
     });
 
     test("the health check needs no login and reveals nothing sensitive", async () => {

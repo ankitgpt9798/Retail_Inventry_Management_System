@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
@@ -17,6 +18,24 @@ const auditRoutes = require("./routes/auditRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
+
+// Protective response headers on EVERY response (this comes first so errors and CORS answers carry them too).
+// helmet also removes "X-Powered-By: Express", which only tells an attacker what software to target.
+app.use(
+    helmet({
+        // Only meaningful over HTTPS: on plain http://localhost browsers ignore it, so it is sent in production only
+        strictTransportSecurity: process.env.NODE_ENV === "production",
+        // The React app runs on another ORIGIN of the same site and reads our JSON through CORS; "same-site"
+        // still stops other websites from embedding these responses
+        crossOriginResourcePolicy: { policy: "same-site" }
+    })
+);
+
+// API answers are personal, logged-in data: never let a browser or a shared proxy keep a copy
+app.use("/api", (req, res, next) => {
+    res.set("Cache-Control", "no-store");
+    next();
+});
 
 // Allow the React app to call this API and send cookies along with requests
 app.use(cors({
