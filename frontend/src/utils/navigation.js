@@ -1,4 +1,4 @@
-import { Boxes, LayoutDashboard, Tags, Warehouse } from "lucide-react";
+import { ArrowLeftRight, Boxes, ClipboardList, LayoutDashboard, Tags, Warehouse } from "lucide-react";
 import { ROLES } from "./roles";
 
 const { ADMIN, INVENTORY_MANAGER, STAFF, SUPPLIER } = ROLES;
@@ -11,6 +11,9 @@ export const PAGE_ACCESS = {
     products: [ADMIN, INVENTORY_MANAGER, STAFF],
     categories: [ADMIN, INVENTORY_MANAGER, STAFF],
     warehouses: [ADMIN, INVENTORY_MANAGER, STAFF],
+    inventory: [ADMIN, INVENTORY_MANAGER, STAFF],
+    // Transfers are a manager job (staff get 403 from the backend)
+    transfers: [ADMIN, INVENTORY_MANAGER],
     profile: [ADMIN, INVENTORY_MANAGER, STAFF, SUPPLIER]
 };
 
@@ -19,7 +22,9 @@ export const PAGE_ACCESS = {
 export const EDIT_ACCESS = {
     products: [ADMIN],
     categories: [ADMIN],
-    warehouses: [ADMIN, INVENTORY_MANAGER]
+    warehouses: [ADMIN, INVENTORY_MANAGER],
+    inventory: [ADMIN, INVENTORY_MANAGER],
+    transfers: [ADMIN, INVENTORY_MANAGER]
 };
 
 export const canEdit = (page, role) => EDIT_ACCESS[page]?.includes(role) ?? false;
@@ -29,7 +34,9 @@ export const APP_LINKS = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: PAGE_ACCESS.dashboard },
     { to: "/products", label: "Products", icon: Boxes, roles: PAGE_ACCESS.products },
     { to: "/categories", label: "Categories", icon: Tags, roles: PAGE_ACCESS.categories },
-    { to: "/warehouses", label: "Warehouses", icon: Warehouse, roles: PAGE_ACCESS.warehouses }
+    { to: "/warehouses", label: "Warehouses", icon: Warehouse, roles: PAGE_ACCESS.warehouses },
+    { to: "/inventory", label: "Inventory", icon: ClipboardList, roles: PAGE_ACCESS.inventory },
+    { to: "/transfers", label: "Transfers", icon: ArrowLeftRight, roles: PAGE_ACCESS.transfers }
 ];
 
 export const getLinksForRole = (role) => {

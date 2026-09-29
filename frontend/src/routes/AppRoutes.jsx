@@ -16,6 +16,9 @@ import ProfilePage from "../pages/app/ProfilePage";
 import ProductsPage from "../pages/app/ProductsPage";
 import CategoriesPage from "../pages/app/CategoriesPage";
 import WarehousesPage from "../pages/app/WarehousesPage";
+import InventoryPage from "../pages/app/InventoryPage";
+import StockHistoryPage from "../pages/app/StockHistoryPage";
+import TransfersPage from "../pages/app/TransfersPage";
 
 // Every URL in the app.
 //  - Public pages share PublicLayout (website header + footer)
@@ -70,6 +73,30 @@ const AppRoutes = () => {
                     element={
                         <ProtectedRoute roles={PAGE_ACCESS.warehouses}>
                             <WarehousesPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/inventory"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.inventory}>
+                            <InventoryPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/inventory/history"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.inventory}>
+                            <StockHistoryPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/transfers"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.transfers}>
+                            <TransfersPage />
                         </ProtectedRoute>
                     }
                 />

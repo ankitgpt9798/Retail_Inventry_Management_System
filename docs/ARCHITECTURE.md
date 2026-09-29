@@ -397,14 +397,20 @@ Password change → backend clears cookie → loggedOutWithMessage → /login
 - Warehouse manager drop-down is shown to admins only (listing users is admin-only in the backend); for managers the field is hidden and `manager` is not sent, so it stays unchanged.
 - Limitation: category drop-downs load up to 100 categories (backend page-size cap).
 
+**Inventory & transfer pages (17.3):** `/inventory`, `/inventory/history`, `/transfers`.
+- Inventory: stock per product + warehouse (on hand / reserved / available / reorder level). "Low stock" badge uses the backend rule *available < reorder level*; "Low stock only" filter sends `lowStock=true`. Admin + manager get Stock in, Stock out (reason required) and Edit reorder level; staff view only. Row buttons pre-select the product and warehouse.
+- Stock history: read-only movement log (type / warehouse / date filters; the "to" day is sent as 23:59:59 so it covers the whole day). Green + / red − from before → after.
+- Transfers (admin + manager only, like the backend): the row shows only the next valid steps — REQUESTED: approve / reject (reason required) / cancel; APPROVED: dispatch / cancel; DISPATCHED: receive. Approve is hidden on your own request (backend blocks self-approval). Dispatch and receive ask for confirmation because they move stock; server refusals (not enough stock, destination full) are shown in the pop-up.
+- New shared pieces: `hooks/useOptions` (drop-down choices, max 100), `ReasonModal`, `ConfirmModal` `confirmClass`, forms in `components/inventory/`.
+- Not built (backend supports it): per-product stock view (`/inventory/product/:id`).
+
 **Frontend build parts**
 | Part | Scope | Status |
 |---|---|---|
 | 17.1 | Setup, API client, auth store, public site, login/register, protected routes, app layout (nav, bell, user menu), dashboard KPIs, profile | Done (38 tests) |
 | 17.2 | Products, categories, warehouses | Done (70 frontend tests in total) |
-
-| 17.3 | Inventory, stock-in/out, low stock, transfers | Next |
-| 17.4 | Orders + fulfillment | |
+| 17.3 | Inventory, stock-in/out, low stock, transfers | Done (94 frontend tests in total) |
+| 17.4 | Orders + fulfillment | Next |
 | 17.5 | Suppliers, purchases, supplier portal | |
 | 17.6 | Dashboard charts, reports, notifications page, users, audit log, code-splitting | |
 
@@ -478,7 +484,7 @@ _Step 17._
 | 14. Notifications API (list, unread count, mark read) | Done |
 | 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done |
 | 16. Audit log API | Done (450 tests passing) — **backend complete** |
-| 17. Frontend (public website + staff app) | In progress — Parts 17.1–17.2 done (70 frontend tests) |
+| 17. Frontend (public website + staff app) | In progress — Parts 17.1–17.3 done (94 frontend tests) |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.
