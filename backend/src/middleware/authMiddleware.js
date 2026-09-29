@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const RevokedToken = require("../models/RevokedToken");
 const AppError = require("../utils/AppError");
 const { USER_STATUS } = require("../utils/constants");
 
@@ -22,6 +23,12 @@ const protect = async (req, res, next) => {
             throw new AppError(401, "TOKEN_EXPIRED", "Your session has expired. Please log in again");
         }
         throw new AppError(401, "INVALID_TOKEN", "Invalid login session. Please log in again");
+    }
+
+    // Logged out? A token that was ended by logging out is refused even though its signature and expiry are fine
+    // (tokens from before ids existed have no jti and are only ended by expiry, a password change or deactivation)
+    if (decoded.jti && (await RevokedToken.exists({ jti: decoded.jti }))) {
+        throw new AppError(401, "SESSION_ENDED", "You have been logged out. Please log in again");
     }
 
     // 3. Load the user fresh from the database, so a deleted or deactivated

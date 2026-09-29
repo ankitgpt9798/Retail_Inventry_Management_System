@@ -1,4 +1,4 @@
-const { registerUser, loginUser } = require("../services/authService");
+const { registerUser, loginUser, revokeToken } = require("../services/authService");
 const { setAuthCookie, clearAuthCookie } = require("../utils/authCookie");
 
 // POST /api/auth/register
@@ -29,7 +29,9 @@ const login = async (req, res) => {
 
 // POST /api/auth/logout
 // Not protected: even a user with an expired token should be able to clear their cookie
-const logout = (req, res) => {
+const logout = async (req, res) => {
+    // End the token itself, not just the browser's copy of it (a copied token must stop working too)
+    await revokeToken(req.cookies?.token);
     clearAuthCookie(res);
 
     res.status(200).json({

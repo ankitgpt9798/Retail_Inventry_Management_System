@@ -1,6 +1,8 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const RevokedToken = require("../models/RevokedToken");
 const AppError = require("../utils/AppError");
 const { ROLES, USER_STATUS } = require("../utils/constants");
 const { logAction } = require("./auditService");
@@ -24,7 +26,33 @@ const createToken = (user) => {
     return jwt.sign(
         { userId: user._id.toString(), tokenVersion: user.tokenVersion },
         process.env.JWT_SECRET,
-        { expiresIn: `${getTokenExpiryDays()}d` }
+        // jwtid: a unique id for THIS token, so logging out can end this one token (see revokeToken)
+        { expiresIn: `${getTokenExpiryDays()}d`, jwtid: crypto.randomUUID() }
+    );
+};
+
+// Logging out: end THIS token now, even if someone kept a copy (E2E finding L1). The token's id goes on the
+// revoked list until the token would have expired anyway. Harmless for anything that isn't a valid token
+// (no cookie, garbage, already expired): there is simply nothing to end. Other sessions of the same person,
+// on other devices, have their own tokens and keep working.
+const revokeToken = async (token) => {
+    if (!token) return;
+
+    let decoded;
+    try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+    }
+    catch (error) {
+        return; // forged, damaged or expired: nothing to revoke
+    }
+
+    // Tokens created before ids existed have none: they can't be ended one by one, and expire on their own
+    if (!decoded.jti) return;
+
+    await RevokedToken.updateOne(
+        { jti: decoded.jti },
+        { $setOnInsert: { jti: decoded.jti, expiresAt: new Date(decoded.exp * 1000) } },
+        { upsert: true }
     );
 };
 
@@ -119,6 +147,7 @@ module.exports = {
     hashPassword,
     getTokenExpiryDays,
     createToken,
+    revokeToken,
     registerUser,
     loginUser
 };

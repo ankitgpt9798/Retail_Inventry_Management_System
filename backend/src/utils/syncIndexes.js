@@ -20,6 +20,7 @@ const models = [
     require("../models/Notification"),
     require("../models/AuditLog"),
     require("../models/LoginAttempt"),
+    require("../models/RevokedToken"),
     require("../models/Counter")
 ];
 

@@ -218,7 +218,9 @@ User 1──* Notification,  User 1──* AuditLog
 - Admins cannot change their own role/status or deactivate themselves → the acting admin always stays an active admin, so the system can never lose its last admin.
 - Admins may set status `ACTIVE`/`INACTIVE` only; `PENDING` comes only from self-registration.
 - `SUPPLIER` users must link to an existing Supplier; any other role has `supplier: null`.
-- `tokenVersion` (User field, copied into the JWT) is increased on password change/reset; `protect` rejects tokens with an old version (`SESSION_REVOKED`).
+- **Ending a session (two mechanisms):**
+  - `tokenVersion` (User field, copied into the JWT) is increased on password change/reset; `protect` rejects tokens with an old version (`SESSION_REVOKED`). This ends **every** session of that user.
+  - **Logout ends only that one session** (E2E finding L1): every login token carries a unique id (`jti`); `POST /api/auth/logout` verifies the cookie's token and writes its id to the `revokedtokens` collection (`models/RevokedToken.js`, removed automatically by a TTL index once the token would have expired anyway); `protect` refuses a token whose id is listed with 401 `SESSION_ENDED`, before loading the user. So a *copied* token stops working at logout, while the same person's other devices (their own tokens) carry on. Logout stays harmless with no token, a garbage or expired token (200, cookie cleared, nothing recorded). Tokens issued before ids existed have no `jti`: they can't be ended one by one and simply expire (at most a day).
 - Search text is regex-escaped (`utils/escapeRegex.js`) before use in MongoDB.
 - Audit actions: `USER_CREATED`, `USER_UPDATED` (old/new values), `USER_DEACTIVATED`, `USER_PASSWORD_RESET`, `PROFILE_UPDATED`, `PASSWORD_CHANGED` (never password values).
 
@@ -497,7 +499,7 @@ The real React app in Chrome against the real Express API and a real MongoDB, dr
 - **Isolation:** its own database (`retail_inventory_e2e`, dropped every run; the reset script refuses any other name) and its own ports (API 3100, app 5273). Settings go in as environment variables, so `.env` files are untouched. Both addresses use `localhost` because the login cookie is `SameSite=Strict`.
 - **Coverage (phases):** 0 setup · 1 authentication, HttpOnly cookie, sessions, CORS, every page and API endpoint for every role · 2 catalog and warehouses · 3 inventory and transfers · 4 orders and fulfillment · 5 suppliers, purchases, supplier portal · 6 notifications, users, audit log · 7 reports and dashboard against hand-computed numbers · 8 two cross-module journeys · plus security, responsive layout and size limits.
 - **Method:** each test creates its own uniquely named data through the API, does the important steps through the real screens, then checks the database (through the API) as well as the screen. Race conditions are tested by firing two requests at once. Expected numbers are worked out by hand from the documented definitions, never read from the code under test.
-- **Findings** are recorded as `Fn` tests marked `test.fail`: they pass while the bug exists and fail loudly once it is fixed. See the table in `e2e/README.md` (F1–F6, L2 and L3 fixed; L1 open).
+- **Findings** were recorded as `Fn` tests marked `test.fail` (they pass while the bug exists and fail loudly once it is fixed). See the table in `e2e/README.md`: all findings (F1–F6, L1–L3) are now fixed, so the suite has no expected-failure tests left.
 - One-off data fix after F2: `cd backend && npm run db:fix-notification-links` (rewrites old notification links; idempotent).
 - Run: `cd e2e && npm test` (about 12 minutes; a single file under a minute).
 - Every module: Jest unit tests for services, Supertest API tests for routes, Postman collection.
@@ -533,10 +535,9 @@ The real React app in Chrome against the real Express API and a real MongoDB, dr
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.
-- A JWT copied before a plain logout stays valid until it expires (max 1 day). Password change/reset does revoke all tokens (tokenVersion). Acceptable for now; see Future Improvements.
+- Tokens issued before the logout-revocation change (E2E finding L1) have no id and can't be ended by logout; they expire on their own (at most a day) and are still ended by a password change/reset. New tokens are fully revocable.
 
 ## Future Improvements
-- Redis token blocklist on logout; rate limiting on /login (brute-force protection).
-- Audit failed login attempts (LOGIN_FAILED with IP) — useful for spotting password-guessing.
+- A "your devices" screen and "log out my other devices" (logout revokes single tokens today; a session collection would make sessions listable). Done since this list was written: token revocation on logout (E2E finding L1), rate limiting and lockout on /login and audited failed logins (L2).
 - Tamper-proof audit trail: today someone with direct database access (Compass/mongosh) can still edit `auditLogs`. Options: a database user for the app with insert-only rights on that collection, hash-chaining entries, or shipping logs to write-once storage.
 - Docker, CI/CD, cloud deployment (explicitly out of scope for now).

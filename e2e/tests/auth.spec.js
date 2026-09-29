@@ -103,11 +103,9 @@ test.describe("logging out", () => {
         await expect(page).toHaveURL(/\/login$/);
     });
 
-    // KNOWN LIMITATION (a design choice, reported in the E2E findings): tokens are stateless JWTs.
-    // Logout removes the cookie from the browser, but a copy of the token stays valid until it expires
-    // (JWT_EXPIRES_IN_DAYS) or the password is changed (tokenVersion). This test pins that behaviour down,
-    // so if server-side revocation is added later, this test fails and reminds us to update it.
-    test("logout only clears the browser's cookie: a copied token stays valid until it expires (known limitation)", async ({ page, playwright }) => {
+    // Was KNOWN LIMITATION L1: logout only removed the cookie from the browser, so a COPY of the token kept working
+    // until it expired. Fixed: logout now puts the token's id on a revoked list, and the server refuses it.
+    test("logout ends the token itself: a copy of it stops working, and the person is told why", async ({ page, playwright }) => {
         await loginViaUi(page, USERS.staff);
         const copiedToken = (await tokenCookie(page)).value;
         const copy = await playwright.request.newContext({ baseURL: `${API_URL}/`, extraHTTPHeaders: { cookie: `token=${copiedToken}` } });
@@ -117,8 +115,50 @@ test.describe("logging out", () => {
         await expect(page).toHaveURL(/\/login$/);
         expect(await tokenCookie(page)).toBeUndefined();
 
-        expect((await copy.get("auth/me")).status(), "the copied token still works after logout").toBe(200);
+        const after = await copy.get("auth/me");
+        expect(after.status(), "the copied token must be dead after logout").toBe(401);
+        expect((await after.json()).error).toBe("SESSION_ENDED");
+        for (const url of ["products", "notifications", "orders"]) {
+            expect((await copy.get(url)).status(), url).toBe(401);
+        }
         await copy.dispose();
+    });
+
+    test("logging out on one device leaves the same person's other devices logged in", async ({ browser }) => {
+        const user = await makeUser();
+        const laptop = await (await browser.newContext()).newPage();
+        const phone = await (await browser.newContext()).newPage();
+        await loginViaUi(laptop, user);
+        await loginViaUi(phone, user);
+
+        await logoutViaUi(laptop);
+        await expect(laptop).toHaveURL(/\/login$/);
+
+        // The phone carries on: a normal click inside the app still works, and it is still logged in after a reload
+        await goToNav(phone, "Catalog", "Products");
+        await expect(phone.getByRole("heading", { level: 1, name: "Products" })).toBeVisible();
+        await phone.reload();
+        await expect(phone.getByRole("navigation", { name: "App" })).toBeVisible();
+        expect(await tokenCookie(phone)).toBeDefined();
+
+        await laptop.context().close();
+        await phone.context().close();
+    });
+
+    test("the app shows the login page if its own token was ended elsewhere, and the person can log in again", async ({ page, playwright }) => {
+        const user = await makeUser();
+        await loginViaUi(page, user);
+        const token = (await tokenCookie(page)).value;
+
+        // The same token is used to log out from somewhere else (e.g. a second tab's API call)
+        const elsewhere = await playwright.request.newContext({ baseURL: `${API_URL}/`, extraHTTPHeaders: { cookie: `token=${token}` } });
+        expect((await elsewhere.post("auth/logout")).status()).toBe(200);
+        await elsewhere.dispose();
+
+        await goToNav(page, "Catalog", "Products");
+        await expect(page).toHaveURL(/\/login$/);
+        await loginViaUi(page, user); // a fresh login works straight away
+        await expect(page).toHaveURL(/\/(dashboard|products)$/);
     });
 });
 
