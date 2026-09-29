@@ -4,7 +4,7 @@ import { formatCurrency, formatNumber, greeting } from "./format";
 
 describe("navigation", () => {
     test("staff roles see the catalog links; suppliers see none", () => {
-        expect(getLinksForRole("STAFF").map((link) => link.label)).toEqual(["Dashboard", "Products", "Categories", "Warehouses", "Inventory"]);
+        expect(getLinksForRole("STAFF").map((link) => link.label)).toEqual(["Dashboard", "Products", "Categories", "Warehouses", "Inventory", "Orders", "Fulfillment"]);
         // Transfers are a manager job, so staff never see that link
         expect(getLinksForRole("INVENTORY_MANAGER").map((link) => link.label)).toContain("Transfers");
         expect(getLinksForRole("SUPPLIER")).toEqual([]);
@@ -18,6 +18,10 @@ describe("navigation", () => {
         expect(canEdit("warehouses", "STAFF")).toBe(false);
         expect(canEdit("inventory", "INVENTORY_MANAGER")).toBe(true);
         expect(canEdit("inventory", "STAFF")).toBe(false);
+        // Orders: admin + staff manage them, the manager only views
+        expect(canEdit("orders", "STAFF")).toBe(true);
+        expect(canEdit("orders", "INVENTORY_MANAGER")).toBe(false);
+        expect(canEdit("fulfillment", "INVENTORY_MANAGER")).toBe(false);
         expect(canEdit("nothing", "ADMIN")).toBe(false);
     });
 

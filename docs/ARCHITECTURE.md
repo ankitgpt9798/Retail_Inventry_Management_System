@@ -404,14 +404,22 @@ Password change → backend clears cookie → loggedOutWithMessage → /login
 - New shared pieces: `hooks/useOptions` (drop-down choices, max 100), `ReasonModal`, `ConfirmModal` `confirmClass`, forms in `components/inventory/`.
 - Not built (backend supports it): per-product stock view (`/inventory/product/:id`).
 
+**Order pages (17.4):** `/orders` (list), `/orders/new`, `/orders/:id` (detail), `/orders/:id/edit`, `/fulfillment`.
+- Permissions: admin + staff manage orders; the inventory manager only views (`EDIT_ACCESS.orders` / `fulfillment`; `PAGE_ACCESS.orderForm` guards the create/edit routes).
+- `utils/orderStatus.js` is the single source for labels, badge colours and the flow: PENDING →(confirm) CONFIRMED → PROCESSING → PACKED → SHIPPED → DELIVERED; cancel is allowed until the order ships.
+- `components/orders/OrderActions` renders the next-step / Edit / Cancel buttons for ONE order and is used by both the detail page and the fulfillment queue, so the rules live in one place. Confirm asks first; ship opens `ShipOrderModal` (carrier + tracking number required); cancel asks for an optional reason (`DELETE` with the reason under axios `data`); other steps run immediately. Server refusals (stock short, wrong status) are shown, never swallowed.
+- Order form: customer + warehouse + item lines (`useFieldArray`), duplicate products blocked, live price *estimate* (the server sets the real prices), empty optional email/phone are left out of the payload (the backend rejects ""). "Save as pending" or "Save and confirm" (`confirm: true`). Only PENDING orders can be edited. The form is rebuilt when the product/warehouse options arrive so saved values show in the drop-downs.
+- Fulfillment: queue counts per stage (`GET /orders/fulfillment-queue`) as clickable cards, plus the orders of the chosen stage (`GET /orders?status=`); after a step both refresh.
+- Limitations: product/warehouse drop-downs load at most 100 items; when editing, an order line whose product was deactivated after the order was made shows an empty product drop-down (pick another product).
+
 **Frontend build parts**
 | Part | Scope | Status |
 |---|---|---|
 | 17.1 | Setup, API client, auth store, public site, login/register, protected routes, app layout (nav, bell, user menu), dashboard KPIs, profile | Done (38 tests) |
 | 17.2 | Products, categories, warehouses | Done (70 frontend tests in total) |
 | 17.3 | Inventory, stock-in/out, low stock, transfers | Done (94 frontend tests in total) |
-| 17.4 | Orders + fulfillment | Next |
-| 17.5 | Suppliers, purchases, supplier portal | |
+| 17.4 | Orders + fulfillment | Done (131 frontend tests in total) |
+| 17.5 | Suppliers, purchases, supplier portal | Next |
 | 17.6 | Dashboard charts, reports, notifications page, users, audit log, code-splitting | |
 
 **Pending checks (add in the step that builds each module):**
@@ -484,7 +492,7 @@ _Step 17._
 | 14. Notifications API (list, unread count, mark read) | Done |
 | 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done |
 | 16. Audit log API | Done (450 tests passing) — **backend complete** |
-| 17. Frontend (public website + staff app) | In progress — Parts 17.1–17.3 done (94 frontend tests) |
+| 17. Frontend (public website + staff app) | In progress — Parts 17.1–17.4 done (131 frontend tests) |
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.

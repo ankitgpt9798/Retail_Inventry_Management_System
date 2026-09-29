@@ -19,6 +19,10 @@ import WarehousesPage from "../pages/app/WarehousesPage";
 import InventoryPage from "../pages/app/InventoryPage";
 import StockHistoryPage from "../pages/app/StockHistoryPage";
 import TransfersPage from "../pages/app/TransfersPage";
+import OrdersPage from "../pages/app/OrdersPage";
+import OrderFormPage from "../pages/app/OrderFormPage";
+import OrderDetailPage from "../pages/app/OrderDetailPage";
+import FulfillmentPage from "../pages/app/FulfillmentPage";
 
 // Every URL in the app.
 //  - Public pages share PublicLayout (website header + footer)
@@ -97,6 +101,46 @@ const AppRoutes = () => {
                     element={
                         <ProtectedRoute roles={PAGE_ACCESS.transfers}>
                             <TransfersPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/orders"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.orders}>
+                            <OrdersPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/orders/new"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.orderForm}>
+                            <OrderFormPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/orders/:id"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.orders}>
+                            <OrderDetailPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/orders/:id/edit"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.orderForm}>
+                            <OrderFormPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/fulfillment"
+                    element={
+                        <ProtectedRoute roles={PAGE_ACCESS.fulfillment}>
+                            <FulfillmentPage />
                         </ProtectedRoute>
                     }
                 />
