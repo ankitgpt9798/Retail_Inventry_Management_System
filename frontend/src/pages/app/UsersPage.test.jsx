@@ -40,9 +40,9 @@ describe("UsersPage", () => {
         renderPage();
 
         expect(await screen.findByText("Sunita Rao")).toBeInTheDocument();
-        expect(screen.getByText("(you)")).toBeInTheDocument();
-        expect(screen.getByText("Pending approval", { selector: "span.badge" })).toBeInTheDocument();
-        expect(within(screen.getByText("Suresh").closest("tr")).getByText("Acme Electronics")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Ravi Kumar (you)" })).toBeInTheDocument();
+        expect(within(screen.getByRole("article", { name: "New Person" })).getByText("Pending approval")).toBeInTheDocument();
+        expect(within(screen.getByRole("article", { name: "Suresh" })).getByText("Acme Electronics")).toBeInTheDocument();
         expect(api.get).toHaveBeenCalledWith("/users", { params: { page: 1, limit: 10 } });
     });
 

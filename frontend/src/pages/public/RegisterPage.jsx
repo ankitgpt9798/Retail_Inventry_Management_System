@@ -58,7 +58,7 @@ const RegisterPage = () => {
     if (successMessage) {
         return (
             <section className="bg-base-200 px-4 py-16">
-                <div className="mx-auto max-w-lg rounded-box border border-base-300 bg-base-100 p-10 text-center">
+                <div className="mx-auto max-w-lg rounded-xl border border-base-300 bg-base-100 p-10 text-center">
                     <MailCheck size={48} className="mx-auto text-success" aria-hidden="true" />
                     <h1 className="mt-4 text-2xl font-bold">Request sent</h1>
                     <p className="mt-2 text-base-content/70">{successMessage}</p>
@@ -70,7 +70,7 @@ const RegisterPage = () => {
 
     return (
         <section className="bg-base-200 px-4 py-16">
-            <div className="mx-auto max-w-lg rounded-box border border-base-300 bg-base-100 p-8 sm:p-10">
+            <div className="mx-auto max-w-lg rounded-xl border border-base-300 bg-base-100 p-8 sm:p-10">
                 <h1 className="text-2xl font-bold">Request access</h1>
                 <p className="mt-1 text-sm text-base-content/70">
                     An administrator will review your request and choose your role.
@@ -81,7 +81,7 @@ const RegisterPage = () => {
                     <ErrorAlert message={serverError} />
                 </div>
 
-                <form className="mt-4 space-y-1" onSubmit={handleSubmit(onSubmit)} noValidate>
+                <form className="mt-4 space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
                     <TextField label="Full name" autoComplete="name" error={errors.name} {...register("name")} />
                     <TextField label="Work email" type="email" autoComplete="email" error={errors.email} {...register("email")} />
                     <TextField label="Phone (optional)" type="tel" autoComplete="tel" error={errors.phone} {...register("phone")} />
@@ -101,7 +101,7 @@ const RegisterPage = () => {
                         {...register("confirmPassword")}
                     />
                     <button type="submit" className="btn btn-primary mt-4 w-full" disabled={isSubmitting}>
-                        {isSubmitting ? <span className="loading loading-spinner loading-sm"></span> : <UserPlus size={18} aria-hidden="true" />}
+                        {isSubmitting ? <span className="spinner size-4" aria-hidden="true"></span> : <UserPlus size={18} aria-hidden="true" />}
                         {isSubmitting ? "Sending…" : "Send request"}
                     </button>
                 </form>

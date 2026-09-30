@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Boxes, PackageCheck, PackageOpen, Truck } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
-import Pagination from "../../components/common/Pagination";
+import PageAlerts from "../../components/common/PageAlerts";
 import ErrorAlert from "../../components/common/ErrorAlert";
-import Loader from "../../components/common/Loader";
+import RecordList from "../../components/common/RecordList";
+import RecordCard, { CardField, CardFields } from "../../components/common/RecordCard";
+import Pagination from "../../components/common/Pagination";
+import StatusBadge from "../../components/common/StatusBadge";
 import OrderActions from "../../components/orders/OrderActions";
 import useList from "../../hooks/useList";
 import api, { getErrorMessage } from "../../services/api";
 import { canEdit } from "../../utils/navigation";
-import { formatCurrency, formatNumber } from "../../utils/format";
+import { formatCurrency, formatDateTime, formatNumber } from "../../utils/format";
 import { FULFILLMENT_STAGES, ORDER_STATUS_STYLES } from "../../utils/orderStatus";
+import { PAYMENT_STATUS_STYLES } from "../../utils/statusStyles";
 
 const PAGE_SIZE = 10;
+
+const STAGE_ICONS = { CONFIRMED: PackageOpen, PROCESSING: Boxes, PACKED: PackageCheck, SHIPPED: Truck };
 
 // The warehouse's to-do list: how many orders wait at each stage, and the orders of one stage
 // with a button for their next step.
@@ -61,86 +67,76 @@ const FulfillmentPage = () => {
         reload();
     };
 
+    const renderOrder = (order) => (
+        <RecordCard
+            key={order._id}
+            label={order.orderNumber}
+            title={order.customer?.name}
+            titleTo={`/orders/${order._id}`}
+            code={order.orderNumber}
+            subtitle={formatDateTime(order.createdAt)}
+            icon={STAGE_ICONS[order.status] || PackageOpen}
+            status={<StatusBadge status={order.paymentStatus} styles={PAYMENT_STATUS_STYLES} />}
+            footer={mayEdit && <OrderActions order={order} onDone={handleDone} compact />}
+        >
+            <CardFields>
+                <CardField label="Warehouse" value={order.warehouse?.code || "—"} />
+                <CardField label="Total" value={formatCurrency(order.totalAmount)} strong />
+                {order.trackingNumber && <CardField label="Tracking" value={`${order.carrier || ""} ${order.trackingNumber}`.trim()} wide mono />}
+            </CardFields>
+        </RecordCard>
+    );
+
     return (
         <>
             <PageHeader title="Fulfillment" description="Orders waiting to be processed, packed and shipped." />
 
-            <ErrorAlert message={queueError} onRetry={loadQueue} />
+            <ErrorAlert message={queueError} onRetry={loadQueue} className="mb-4" />
 
-            <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-                {FULFILLMENT_STAGES.map((value) => (
-                    <button
-                        key={value}
-                        type="button"
-                        onClick={() => chooseStage(value)}
-                        aria-pressed={stage === value}
-                        className={`card border bg-base-100 text-left transition-colors ${
-                            stage === value ? "border-primary ring-1 ring-primary" : "border-base-300 hover:border-primary/50"
-                        }`}
-                    >
-                        <div className="card-body p-4">
-                            <span className="text-sm text-base-content/70">{ORDER_STATUS_STYLES[value].label}</span>
-                            <span className="text-3xl font-bold" data-testid={`queue-${value}`}>
-                                {queue ? formatNumber(queue[value] ?? 0) : "–"}
+            {/* One button per stage, with how many orders wait there */}
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                {FULFILLMENT_STAGES.map((value) => {
+                    const Icon = STAGE_ICONS[value];
+                    const selected = stage === value;
+                    return (
+                        <button
+                            key={value}
+                            type="button"
+                            onClick={() => chooseStage(value)}
+                            aria-pressed={selected}
+                            className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border bg-base-100 p-4 text-left shadow-card transition-colors ${
+                                selected ? "border-primary ring-2 ring-primary/20" : "border-base-300 hover:border-primary/40"
+                            }`}
+                        >
+                            <span className="min-w-0">
+                                <span className="block truncate text-sm text-base-content/65">{ORDER_STATUS_STYLES[value].label}</span>
+                                <span className="text-2xl font-bold tabular-nums sm:text-3xl" data-testid={`queue-${value}`}>
+                                    {queue ? formatNumber(queue[value] ?? 0) : "–"}
+                                </span>
                             </span>
-                        </div>
-                    </button>
-                ))}
+                            <span className={`hidden size-10 shrink-0 items-center justify-center rounded-lg sm:flex ${selected ? "bg-primary text-primary-content" : "bg-primary-soft text-primary"}`}>
+                                <Icon size={20} aria-hidden="true" />
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
 
-            {notice && (
-                <div role="status" className="alert alert-success alert-soft mb-4">
-                    {notice}
-                </div>
-            )}
+            <PageAlerts notice={notice} onDismissNotice={() => setNotice("")} />
 
-            <div className="card border border-base-300 bg-base-100">
-                {error ? (
-                    <div className="p-4">
-                        <ErrorAlert message={error} onRetry={reload} />
-                    </div>
-                ) : isLoading ? (
-                    <Loader text="Loading orders…" />
-                ) : items.length === 0 ? (
-                    <p className="p-10 text-center text-base-content/70">
-                        No {ORDER_STATUS_STYLES[stage].label.toLowerCase()} orders. Nothing to do here.
-                    </p>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Order</th>
-                                    <th>Customer</th>
-                                    <th>Warehouse</th>
-                                    <th className="text-right">Total</th>
-                                    {mayEdit && <th className="text-right">Next step</th>}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map((order) => (
-                                    <tr key={order._id}>
-                                        <td>
-                                            <Link to={`/orders/${order._id}`} className="link link-hover font-mono text-sm font-medium">
-                                                {order.orderNumber}
-                                            </Link>
-                                        </td>
-                                        <td>{order.customer?.name}</td>
-                                        <td>{order.warehouse?.code}</td>
-                                        <td className="text-right">{formatCurrency(order.totalAmount)}</td>
-                                        {mayEdit && (
-                                            <td>
-                                                <OrderActions order={order} onDone={handleDone} compact />
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-                <Pagination pagination={pagination} onPageChange={setPage} />
-            </div>
+            <RecordList
+                items={items}
+                isLoading={isLoading}
+                error={error}
+                onRetry={reload}
+                noun="orders"
+                emptyIcon={PackageCheck}
+                emptyTitle={`No ${ORDER_STATUS_STYLES[stage].label.toLowerCase()} orders`}
+                emptyMessage="Nothing to do here."
+                renderItem={renderOrder}
+            />
+
+            <Pagination pagination={pagination} onPageChange={setPage} noun="orders" />
         </>
     );
 };

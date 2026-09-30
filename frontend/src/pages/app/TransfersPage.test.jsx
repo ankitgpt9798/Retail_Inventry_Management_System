@@ -47,12 +47,13 @@ describe("TransfersPage", () => {
         renderPage();
 
         expect(await screen.findByText("TRF-000001")).toBeInTheDocument();
-        // (scoped to the row: "Requested" is also an option in the status filter)
-        const row = screen.getByText("TRF-000001").closest("tr");
-        expect(within(row).getByText("Requested")).toBeInTheDocument();
+        // (scoped to the card: "Requested" is also an option in the status filter)
+        const card = screen.getByRole("article", { name: "TRF-000001" });
+        expect(within(card).getByText("Requested")).toBeInTheDocument();
+        expect(within(card).getByText("10 units")).toBeInTheDocument();
         expect(screen.getByText(/DEL-01/)).toBeInTheDocument();
         expect(screen.getByText(/NOI-01/)).toBeInTheDocument();
-        expect(api.get).toHaveBeenCalledWith("/transfers", { params: { page: 1, limit: 10 } });
+        expect(api.get).toHaveBeenCalledWith("/transfers", { params: { sort: "newest", page: 1, limit: 10 } });
     });
 
     test("the status filter is sent to the API", async () => {
@@ -63,7 +64,7 @@ describe("TransfersPage", () => {
         await userEvent.selectOptions(screen.getByRole("combobox", { name: "Status" }), "DISPATCHED");
 
         await vi.waitFor(() =>
-            expect(api.get).toHaveBeenLastCalledWith("/transfers", { params: { status: "DISPATCHED", page: 1, limit: 10 } })
+            expect(api.get).toHaveBeenLastCalledWith("/transfers", { params: { status: "DISPATCHED", sort: "newest", page: 1, limit: 10 } })
         );
     });
 
@@ -186,7 +187,7 @@ describe("TransfersPage", () => {
         showTransfers([]);
         api.post.mockResolvedValue({ data: {} });
         renderPage();
-        await screen.findByText("No transfers found.");
+        await screen.findByText("No transfers yet");
 
         await userEvent.click(screen.getByRole("button", { name: /new transfer/i }));
         const dialog = screen.getByRole("dialog");
@@ -206,7 +207,7 @@ describe("TransfersPage", () => {
     test("the form refuses the same warehouse twice, without calling the API", async () => {
         showTransfers([]);
         renderPage();
-        await screen.findByText("No transfers found.");
+        await screen.findByText("No transfers yet");
 
         await userEvent.click(screen.getByRole("button", { name: /new transfer/i }));
         const dialog = screen.getByRole("dialog");

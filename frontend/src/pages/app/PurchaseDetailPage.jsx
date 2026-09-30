@@ -8,6 +8,7 @@ import PurchaseStatusBadge from "../../components/purchases/PurchaseStatusBadge"
 import PurchaseActions from "../../components/purchases/PurchaseActions";
 import api, { getErrorMessage } from "../../services/api";
 import { formatCurrency, formatDate, formatDateTime, formatNumber } from "../../utils/format";
+import PageAlerts from "../../components/common/PageAlerts";
 
 // The key moments of a purchase order, oldest first. Only the ones that happened are shown.
 const buildTimeline = (purchase) => {
@@ -77,13 +78,9 @@ const PurchaseDetailPage = () => {
                 </Link>
             </PageHeader>
 
-            {notice && (
-                <div role="status" className="alert alert-success alert-soft mb-4">
-                    {notice}
-                </div>
-            )}
+            <PageAlerts notice={notice} onDismissNotice={() => setNotice("")} />
 
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-box border border-base-300 bg-base-100 p-4">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 shadow-card">
                 <div className="flex items-center gap-3">
                     <span className="text-sm text-base-content/70">Status</span>
                     <PurchaseStatusBadge status={purchase.status} />
@@ -91,9 +88,9 @@ const PurchaseDetailPage = () => {
                 <PurchaseActions purchase={purchase} onDone={handleDone} />
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 *:min-w-0 lg:grid-cols-3">
                 <div className="space-y-6 lg:col-span-2">
-                    <div className="card border border-base-300 bg-base-100">
+                    <div className="card">
                         <div className="card-body">
                             <h2 className="card-title">Items</h2>
                             <div className="overflow-x-auto">
@@ -130,7 +127,7 @@ const PurchaseDetailPage = () => {
                         </div>
                     </div>
 
-                    <div className="card border border-base-300 bg-base-100">
+                    <div className="card">
                         <div className="card-body">
                             <h2 className="card-title">Timeline</h2>
                             <ol className="space-y-3">
@@ -150,7 +147,7 @@ const PurchaseDetailPage = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="card border border-base-300 bg-base-100">
+                    <div className="card">
                         <div className="card-body">
                             <h2 className="card-title">Details</h2>
                             <dl className="space-y-2 text-sm">

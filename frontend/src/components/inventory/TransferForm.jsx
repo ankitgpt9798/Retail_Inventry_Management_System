@@ -51,7 +51,7 @@ const TransferForm = ({ products, warehouses, onSaved, onClose }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <ErrorAlert message={serverError} />
             <SelectField label="Product" error={errors.product} {...register("product")}>
                 <option value="">Choose a product…</option>
@@ -61,7 +61,7 @@ const TransferForm = ({ products, warehouses, onSaved, onClose }) => {
                     </option>
                 ))}
             </SelectField>
-            <div className="grid gap-x-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
                 <SelectField label="From warehouse" error={errors.fromWarehouse} {...register("fromWarehouse")}>
                     <option value="">Choose…</option>
                     {warehouses.map((warehouse) => (
@@ -81,7 +81,7 @@ const TransferForm = ({ products, warehouses, onSaved, onClose }) => {
             </div>
             <TextField label="Quantity" type="number" error={errors.quantity} {...register("quantity", { valueAsNumber: true })} />
             <TextField label="Notes (optional)" error={errors.notes} {...register("notes")} />
-            <div className="modal-action">
+            <div className="form-actions">
                 <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </button>

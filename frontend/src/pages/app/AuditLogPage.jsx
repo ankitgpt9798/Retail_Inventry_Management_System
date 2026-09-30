@@ -1,16 +1,20 @@
-import { Fragment, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronRight, ScrollText } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
-import { FilterSelect } from "../../components/common/ListToolbar";
+import ListToolbar, { DateFilter, FilterSelect } from "../../components/common/ListToolbar";
+import RecordList from "../../components/common/RecordList";
+import RecordCard, { CardField, CardFields } from "../../components/common/RecordCard";
 import Pagination from "../../components/common/Pagination";
-import ErrorAlert from "../../components/common/ErrorAlert";
-import Loader from "../../components/common/Loader";
+import Badge from "../../components/common/Badge";
+import useFilters from "../../hooks/useFilters";
 import useList from "../../hooks/useList";
 import useOptions from "../../hooks/useOptions";
 import api from "../../services/api";
 import { formatDateTime } from "../../utils/format";
 
 const PAGE_SIZE = 15;
+
+const INITIAL_FILTERS = { action: "", entityType: "", user: "", from: "", to: "", sort: "newest" };
 
 // "PRODUCT_UPDATED" → "Product updated"
 const humanizeAction = (action) => {
@@ -39,14 +43,8 @@ const buildChanges = (oldValue, newValue) => {
 
 // The audit trail: who did what, and when. Read-only; the backend never lets a record change.
 const AuditLogPage = () => {
-    const [action, setAction] = useState("");
-    const [entityType, setEntityType] = useState("");
-    const [user, setUser] = useState("");
-    const [from, setFrom] = useState("");
-    const [to, setTo] = useState("");
-    const [sort, setSort] = useState("newest");
-    const [page, setPage] = useState(1);
-    const [expanded, setExpanded] = useState(null); // the id of the row whose details are open
+    const { filters, setFilter: changeFilter, clearFilters, hasFilters, page, setPage } = useFilters(INITIAL_FILTERS);
+    const [expanded, setExpanded] = useState(null); // the id of the card whose details are open
 
     // The actions and record types that actually occur in the log (for the filter lists)
     const [filterChoices, setFilterChoices] = useState({ actions: [], entityTypes: [] });
@@ -58,162 +56,127 @@ const AuditLogPage = () => {
     const users = useOptions("/users", "users");
 
     const { items, pagination, isLoading, error, reload } = useList("/audit-logs", "auditLogs", {
-        action,
-        entityType,
-        user,
-        from,
-        to,
-        sort,
+        ...filters,
         page,
         limit: PAGE_SIZE
     });
 
-    const withPageReset = (setter) => (value) => {
-        setter(value);
-        setPage(1);
+    // A new filter shows other entries, so close any open details
+    const setFilter = (name, value) => {
+        changeFilter(name, value);
         setExpanded(null);
+    };
+
+    const renderEntry = (entry) => {
+        const isOpen = expanded === entry._id;
+        const changes = buildChanges(entry.oldValue, entry.newValue);
+        const hasDetails = changes.length > 0 || Boolean(entry.metadata);
+        return (
+            <RecordCard
+                key={entry._id}
+                label={`${humanizeAction(entry.action)} · ${formatDateTime(entry.createdAt)}`}
+                title={humanizeAction(entry.action)}
+                code={`${humanizeEntity(entry.entityType)} · ${String(entry.entityId || "").slice(-8)}`}
+                subtitle={entry.user?.name || "System"}
+                icon={ScrollText}
+                status={<Badge tone="neutral" dot={false}>{humanizeEntity(entry.entityType)}</Badge>}
+                footer={
+                    hasDetails && (
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            aria-expanded={isOpen}
+                            aria-label={`${isOpen ? "Hide" : "Show"} details: ${humanizeAction(entry.action)}`}
+                            onClick={() => setExpanded(isOpen ? null : entry._id)}
+                        >
+                            {isOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+                            Details
+                        </button>
+                    )
+                }
+            >
+                <CardFields>
+                    <CardField label="When" value={formatDateTime(entry.createdAt)} />
+                    <CardField label="By" value={entry.user?.email || "System"} />
+                </CardFields>
+                {isOpen && (
+                    <div className="mt-4 space-y-3 rounded-lg bg-base-200/70 p-3 text-sm">
+                        {changes.length > 0 && (
+                            <dl className="space-y-2">
+                                {changes.map((change) => (
+                                    <div key={change.field}>
+                                        <dt className="font-mono text-xs text-base-content/60">{change.field}</dt>
+                                        <dd className="break-all">
+                                            <span className="text-error-strong line-through decoration-1">{show(change.before)}</span>
+                                            <span className="mx-1.5 text-base-content/50">→</span>
+                                            <span className="font-medium text-success-strong">{show(change.after)}</span>
+                                        </dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        )}
+                        {entry.metadata && (
+                            <p className="break-all text-xs text-base-content/70">
+                                <span className="font-semibold">Extra details:</span> {show(entry.metadata)}
+                            </p>
+                        )}
+                    </div>
+                )}
+            </RecordCard>
+        );
     };
 
     return (
         <>
             <PageHeader title="Audit log" description="A permanent record of who changed what. It can't be edited or deleted." />
 
-            <div className="card border border-base-300 bg-base-100">
-                <div className="flex flex-wrap items-center gap-3 border-b border-base-300 p-4">
-                    <FilterSelect label="Action" value={action} onChange={withPageReset(setAction)}>
-                        <option value="">All actions</option>
-                        {filterChoices.actions.map((value) => (
-                            <option key={value} value={value}>
-                                {humanizeAction(value)}
-                            </option>
-                        ))}
-                    </FilterSelect>
-                    <FilterSelect label="Record type" value={entityType} onChange={withPageReset(setEntityType)}>
-                        <option value="">All record types</option>
-                        {filterChoices.entityTypes.map((value) => (
-                            <option key={value} value={value}>
-                                {humanizeEntity(value)}
-                            </option>
-                        ))}
-                    </FilterSelect>
-                    <FilterSelect label="User" value={user} onChange={withPageReset(setUser)}>
-                        <option value="">All users</option>
-                        {users.map((item) => (
-                            <option key={item._id} value={item._id}>
-                                {item.name}
-                            </option>
-                        ))}
-                    </FilterSelect>
-                    <label className="flex items-center gap-2 text-sm">
-                        From
-                        <input type="date" className="input" value={from} max={to || undefined} onChange={(event) => withPageReset(setFrom)(event.target.value)} />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                        To
-                        <input type="date" className="input" value={to} min={from || undefined} onChange={(event) => withPageReset(setTo)(event.target.value)} />
-                    </label>
-                    <FilterSelect label="Order" value={sort} onChange={withPageReset(setSort)}>
-                        <option value="newest">Newest first</option>
-                        <option value="oldest">Oldest first</option>
-                    </FilterSelect>
-                </div>
+            <ListToolbar hasFilters={hasFilters} onClear={clearFilters}>
+                <FilterSelect label="Action" value={filters.action} onChange={(value) => setFilter("action", value)}>
+                    <option value="">All actions</option>
+                    {filterChoices.actions.map((value) => (
+                        <option key={value} value={value}>
+                            {humanizeAction(value)}
+                        </option>
+                    ))}
+                </FilterSelect>
+                <FilterSelect label="Record type" value={filters.entityType} onChange={(value) => setFilter("entityType", value)}>
+                    <option value="">All record types</option>
+                    {filterChoices.entityTypes.map((value) => (
+                        <option key={value} value={value}>
+                            {humanizeEntity(value)}
+                        </option>
+                    ))}
+                </FilterSelect>
+                <FilterSelect label="User" value={filters.user} onChange={(value) => setFilter("user", value)}>
+                    <option value="">All users</option>
+                    {users.map((item) => (
+                        <option key={item._id} value={item._id}>
+                            {item.name}
+                        </option>
+                    ))}
+                </FilterSelect>
+                <DateFilter label="From" value={filters.from} max={filters.to} onChange={(value) => setFilter("from", value)} />
+                <DateFilter label="To" value={filters.to} min={filters.from} onChange={(value) => setFilter("to", value)} />
+                <FilterSelect label="Order" value={filters.sort} onChange={(value) => setFilter("sort", value)}>
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                </FilterSelect>
+            </ListToolbar>
 
-                {error ? (
-                    <div className="p-4">
-                        <ErrorAlert message={error} onRetry={reload} />
-                    </div>
-                ) : isLoading ? (
-                    <Loader text="Loading audit log…" />
-                ) : items.length === 0 ? (
-                    <p className="p-10 text-center text-base-content/70">No audit records found.</p>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>When</th>
-                                    <th>User</th>
-                                    <th>Action</th>
-                                    <th>Record</th>
-                                    <th className="text-right">Details</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map((entry) => {
-                                    const isOpen = expanded === entry._id;
-                                    const changes = buildChanges(entry.oldValue, entry.newValue);
-                                    const hasDetails = changes.length > 0 || Boolean(entry.metadata);
-                                    return (
-                                        <Fragment key={entry._id}>
-                                            <tr>
-                                                <td className="whitespace-nowrap text-sm">{formatDateTime(entry.createdAt)}</td>
-                                                <td>
-                                                    <div className="font-medium">{entry.user?.name || "System"}</div>
-                                                    {entry.user?.email && <div className="text-xs text-base-content/60">{entry.user.email}</div>}
-                                                </td>
-                                                <td>{humanizeAction(entry.action)}</td>
-                                                <td>
-                                                    <div>{humanizeEntity(entry.entityType)}</div>
-                                                    <div className="font-mono text-xs text-base-content/60">{String(entry.entityId || "").slice(-8)}</div>
-                                                </td>
-                                                <td className="text-right">
-                                                    {hasDetails && (
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-ghost btn-sm"
-                                                            aria-expanded={isOpen}
-                                                            aria-label={`${isOpen ? "Hide" : "Show"} details: ${humanizeAction(entry.action)}`}
-                                                            onClick={() => setExpanded(isOpen ? null : entry._id)}
-                                                        >
-                                                            {isOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-                                                            Details
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            {isOpen && (
-                                                <tr>
-                                                    <td colSpan={5} className="bg-base-200/60">
-                                                        <div className="space-y-3 p-2">
-                                                            {changes.length > 0 && (
-                                                                <table className="table table-sm">
-                                                                    <thead>
-                                                                        <tr>
-                                                                            <th>Field</th>
-                                                                            <th>Before</th>
-                                                                            <th>After</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {changes.map((change) => (
-                                                                            <tr key={change.field}>
-                                                                                <td className="font-mono text-xs">{change.field}</td>
-                                                                                <td className="break-all">{show(change.before)}</td>
-                                                                                <td className="break-all">{show(change.after)}</td>
-                                                                            </tr>
-                                                                        ))}
-                                                                    </tbody>
-                                                                </table>
-                                                            )}
-                                                            {entry.metadata && (
-                                                                <p className="break-all text-xs text-base-content/70">
-                                                                    <span className="font-semibold">Extra details:</span> {show(entry.metadata)}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </Fragment>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+            <RecordList
+                items={items}
+                isLoading={isLoading}
+                error={error}
+                onRetry={reload}
+                noun="audit records"
+                isFiltered={hasFilters}
+                onClearFilters={clearFilters}
+                emptyIcon={ScrollText}
+                emptyMessage="Changes people make (creating, editing, approving…) are recorded here."
+                renderItem={renderEntry}
+            />
 
-                <Pagination pagination={pagination} onPageChange={setPage} />
-            </div>
+            <Pagination pagination={pagination} onPageChange={setPage} noun="records" />
         </>
     );
 };

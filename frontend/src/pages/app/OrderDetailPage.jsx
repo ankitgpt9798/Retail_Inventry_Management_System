@@ -4,9 +4,11 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
 import ErrorAlert from "../../components/common/ErrorAlert";
+import PageAlerts from "../../components/common/PageAlerts";
 import Loader from "../../components/common/Loader";
 import OrderStatusBadge from "../../components/orders/OrderStatusBadge";
 import OrderActions from "../../components/orders/OrderActions";
+import PaymentStatusForm from "../../components/orders/PaymentStatusForm";
 import api, { getErrorMessage } from "../../services/api";
 import { canEdit } from "../../utils/navigation";
 import { formatCurrency, formatDateTime, formatNumber } from "../../utils/format";
@@ -67,13 +69,9 @@ const OrderDetailPage = () => {
                 </Link>
             </PageHeader>
 
-            {notice && (
-                <div role="status" className="alert alert-success alert-soft mb-4">
-                    {notice}
-                </div>
-            )}
+            <PageAlerts notice={notice} onDismissNotice={() => setNotice("")} />
 
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-box border border-base-300 bg-base-100 p-4">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-base-300 bg-base-100 p-4 shadow-card">
                 <div className="flex items-center gap-3">
                     <span className="text-sm text-base-content/70">Status</span>
                     <OrderStatusBadge status={order.status} />
@@ -81,9 +79,9 @@ const OrderDetailPage = () => {
                 {mayEdit && <OrderActions order={order} onDone={handleDone} />}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 *:min-w-0 lg:grid-cols-3">
                 <div className="space-y-6 lg:col-span-2">
-                    <div className="card border border-base-300 bg-base-100">
+                    <div className="card">
                         <div className="card-body">
                             <h2 className="card-title">Items</h2>
                             <div className="overflow-x-auto">
@@ -121,12 +119,13 @@ const OrderDetailPage = () => {
                         </div>
                     </div>
 
-                    <div className="card border border-base-300 bg-base-100">
+                    <div className="card">
                         <div className="card-body">
                             <h2 className="card-title">Timeline</h2>
-                            <ol className="space-y-3">
+                            <ol className="mt-2 space-y-4 border-l-2 border-base-300 pl-5">
                                 {(order.statusHistory || []).map((entry, index) => (
-                                    <li key={index} className="flex items-start gap-3">
+                                    <li key={index} className="relative flex flex-wrap items-start gap-3">
+                                        <span className="absolute -left-[1.6rem] top-1.5 size-3 rounded-full border-2 border-base-100 bg-primary" aria-hidden="true"></span>
                                         <OrderStatusBadge status={entry.status} />
                                         <div className="text-sm">
                                             <div>
@@ -143,7 +142,14 @@ const OrderDetailPage = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="card border border-base-300 bg-base-100">
+                    <div className="card">
+                        <div className="card-body">
+                            <h2 className="card-title">Payment</h2>
+                            <PaymentStatusForm key={order.paymentStatus} order={order} mayEdit={mayEdit} onDone={handleDone} />
+                        </div>
+                    </div>
+
+                    <div className="card">
                         <div className="card-body">
                             <h2 className="card-title">Customer</h2>
                             <dl className="space-y-2 text-sm">
@@ -155,7 +161,7 @@ const OrderDetailPage = () => {
                         </div>
                     </div>
 
-                    <div className="card border border-base-300 bg-base-100">
+                    <div className="card">
                         <div className="card-body">
                             <h2 className="card-title">Fulfillment</h2>
                             <dl className="space-y-2 text-sm">

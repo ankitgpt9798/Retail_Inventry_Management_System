@@ -1,16 +1,16 @@
-// Order statuses in one place: label, badge colour and the next step of the flow.
+// Order statuses in one place: label, colour (tone) and the next step of the flow.
 // Same flow as the backend:
 //   PENDING → (confirm) CONFIRMED → PROCESSING → PACKED → SHIPPED → DELIVERED
 //   and an order can be CANCELLED any time before it ships.
 
 export const ORDER_STATUS_STYLES = {
-    PENDING: { label: "Pending", className: "badge-info" },
-    CONFIRMED: { label: "Confirmed", className: "badge-primary" },
-    PROCESSING: { label: "Processing", className: "badge-secondary" },
-    PACKED: { label: "Packed", className: "badge-accent" },
-    SHIPPED: { label: "Shipped", className: "badge-warning" },
-    DELIVERED: { label: "Delivered", className: "badge-success" },
-    CANCELLED: { label: "Cancelled", className: "badge-neutral" }
+    PENDING: { label: "Pending", tone: "warning" },
+    CONFIRMED: { label: "Confirmed", tone: "info" },
+    PROCESSING: { label: "Processing", tone: "violet" },
+    PACKED: { label: "Packed", tone: "violet" },
+    SHIPPED: { label: "Shipped", tone: "primary" },
+    DELIVERED: { label: "Delivered", tone: "success" },
+    CANCELLED: { label: "Cancelled", tone: "neutral" }
 };
 
 // The button that moves an order forward, by its CURRENT status.

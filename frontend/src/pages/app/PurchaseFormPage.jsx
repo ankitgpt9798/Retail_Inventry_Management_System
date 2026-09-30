@@ -12,6 +12,7 @@ import Loader from "../../components/common/Loader";
 import useOptions from "../../hooks/useOptions";
 import api, { getErrorMessage } from "../../services/api";
 import { formatCurrency } from "../../utils/format";
+import Alert from "../../components/common/Alert";
 
 // Same rules as the backend (validators/purchaseValidators.js) for quick feedback
 const purchaseSchema = z.object({
@@ -86,9 +87,9 @@ const PurchaseFormPage = () => {
         return (
             <>
                 <PageHeader title={`Edit ${purchase.poNumber}`} />
-                <div role="alert" className="alert alert-warning alert-soft">
+                <Alert tone="warning" role="alert">
                     Only draft purchase orders can be edited. This one is {purchase.status.toLowerCase().replace("_", " ")}.
-                </div>
+                </Alert>
                 <Link to={`/purchases/${id}`} className="btn mt-4">
                     Back to the purchase order
                 </Link>
@@ -178,9 +179,9 @@ const PurchaseForm = ({ defaults, isEdit, suppliers, warehouses, products, serve
         <form noValidate className="space-y-6">
             <ErrorAlert message={serverError} />
 
-            <div className="card border border-base-300 bg-base-100">
+            <div className="card">
                 <div className="card-body">
-                    <div className="grid gap-x-4 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
                         <SelectField label="Supplier" error={errors.supplier} {...register("supplier")}>
                             <option value="">Choose a supplier…</option>
                             {suppliers.map((supplier) => (
@@ -203,7 +204,7 @@ const PurchaseForm = ({ defaults, isEdit, suppliers, warehouses, products, serve
                 </div>
             </div>
 
-            <div className="card border border-base-300 bg-base-100">
+            <div className="card">
                 <div className="card-body">
                     <h2 className="card-title">Items</h2>
                     {itemsError && <p className="text-sm text-error" role="alert">{itemsError}</p>}

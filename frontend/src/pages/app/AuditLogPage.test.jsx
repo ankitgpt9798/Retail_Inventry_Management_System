@@ -35,30 +35,34 @@ beforeEach(() => {
     });
 });
 
+// Each log entry is a card named after its action (and time)
+const card = (action) => screen.getByRole("article", { name: new RegExp(`^${action} ·`) });
+
 const renderPage = () => renderWithProviders(<AuditLogPage />, { preloadedState: authState("ADMIN"), route: "/audit-logs", path: "/audit-logs" });
 
 describe("AuditLogPage", () => {
     test("lists who did what, in plain words", async () => {
         renderPage();
 
-        expect(await screen.findByText("Product updated", { selector: "td" })).toBeInTheDocument();
-        expect(screen.getByText("Stock transfer dispatched", { selector: "td" })).toBeInTheDocument();
-        expect(screen.getByText("Stock transfer", { selector: "td div" })).toBeInTheDocument(); // "StockTransfer" made readable
+        expect(await screen.findByRole("heading", { name: "Product updated" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Stock transfer dispatched" })).toBeInTheDocument();
+        // "StockTransfer" made readable
+        expect(within(card("Stock transfer dispatched")).getByText("Stock transfer")).toBeInTheDocument();
         expect(screen.getAllByText("Ravi Kumar").length).toBeGreaterThan(0);
-        expect(screen.getByText("12345678")).toBeInTheDocument(); // the last 8 characters of the record id
+        expect(within(card("Product updated")).getByText("Product · 12345678")).toBeInTheDocument(); // the last 8 characters of the record id
         expect(api.get).toHaveBeenCalledWith("/audit-logs", { params: { sort: "newest", page: 1, limit: 15 } });
     });
 
     test("an action without a user is shown as 'System'", async () => {
         renderPage();
-        await screen.findByText("Product updated", { selector: "td" });
+        await screen.findByRole("heading", { name: "Product updated" });
 
-        expect(within(screen.getByText("Stock transfer dispatched").closest("tr")).getByText("System")).toBeInTheDocument();
+        expect(within(card("Stock transfer dispatched")).getAllByText("System").length).toBeGreaterThan(0);
     });
 
     test("filter lists come from what is really in the log", async () => {
         renderPage();
-        await screen.findByText("Product updated", { selector: "td" });
+        await screen.findByRole("heading", { name: "Product updated" });
 
         const action = screen.getByRole("combobox", { name: "Action" });
         expect(within(action).getByRole("option", { name: "User login" })).toBeInTheDocument();
@@ -69,7 +73,7 @@ describe("AuditLogPage", () => {
 
     test("action, record type, user, dates and order are sent to the API", async () => {
         renderPage();
-        await screen.findByText("Product updated", { selector: "td" });
+        await screen.findByRole("heading", { name: "Product updated" });
 
         await userEvent.selectOptions(screen.getByRole("combobox", { name: "Action" }), "PRODUCT_UPDATED");
         await userEvent.selectOptions(screen.getByRole("combobox", { name: "Record type" }), "Product");
@@ -90,18 +94,18 @@ describe("AuditLogPage", () => {
 
         await userEvent.click(await screen.findByRole("button", { name: "Show details: Product updated" }));
 
-        const details = screen.getAllByRole("table")[1];
-        expect(within(details).getByText("sellingPrice")).toBeInTheDocument();
-        expect(within(within(details).getByText("sellingPrice").closest("tr")).getByText("949")).toBeInTheDocument();
-        expect(within(within(details).getByText("sellingPrice").closest("tr")).getByText("999")).toBeInTheDocument();
+        // Each changed field: its name, then "before → after"
+        const change = (field) => within(card("Product updated")).getByText(field).parentElement;
+        expect(within(change("sellingPrice")).getByText("949")).toBeInTheDocument();
+        expect(within(change("sellingPrice")).getByText("999")).toBeInTheDocument();
         // A field that only exists before: shown, with "—" after
-        expect(within(within(details).getByText("name").closest("tr")).getByText("—")).toBeInTheDocument();
+        expect(within(change("name")).getByText("—")).toBeInTheDocument();
 
         await userEvent.click(screen.getByRole("button", { name: "Hide details: Product updated" }));
-        expect(screen.getAllByRole("table")).toHaveLength(1);
+        expect(screen.queryByText("sellingPrice")).not.toBeInTheDocument();
     });
 
-    test("extra details (metadata) are shown; rows with nothing extra have no Details button", async () => {
+    test("extra details (metadata) are shown; entries with nothing extra have no Details button", async () => {
         renderPage();
 
         await userEvent.click(await screen.findByRole("button", { name: "Show details: Stock transfer dispatched" }));
@@ -111,7 +115,7 @@ describe("AuditLogPage", () => {
         expect(screen.queryByRole("button", { name: "Show details: User login" })).not.toBeInTheDocument();
     });
 
-    test("only one row's details are open at a time", async () => {
+    test("only one entry's details are open at a time", async () => {
         renderPage();
 
         await userEvent.click(await screen.findByRole("button", { name: "Show details: Product updated" }));
@@ -123,7 +127,7 @@ describe("AuditLogPage", () => {
 
     test("it has no edit or delete controls: the log is read-only", async () => {
         renderPage();
-        await screen.findByText("Product updated", { selector: "td" });
+        await screen.findByRole("heading", { name: "Product updated" });
 
         expect(screen.queryByRole("button", { name: /edit|delete|remove/i })).not.toBeInTheDocument();
     });
@@ -143,6 +147,6 @@ describe("AuditLogPage", () => {
 
         expect(await screen.findByText("from cannot be after to")).toBeInTheDocument();
         await userEvent.click(screen.getByRole("button", { name: "Try again" }));
-        expect(await screen.findByText("Product updated", { selector: "td" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "Product updated" })).toBeInTheDocument();
     });
 });

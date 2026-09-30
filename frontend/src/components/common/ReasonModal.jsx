@@ -31,23 +31,23 @@ const ReasonModal = ({ title, message, label = "Reason", required = false, confi
 
     return (
         <Modal title={title} onClose={onClose}>
-            <form onSubmit={handleSubmit} noValidate className="space-y-2">
-                {message && <p>{message}</p>}
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+                {message && <p className="text-sm text-base-content/80">{message}</p>}
                 <ErrorAlert message={error} />
-                <fieldset className="fieldset">
-                    <label className="fieldset-legend" htmlFor="reason">
+                <div>
+                    <label className="field-label" htmlFor="reason">
                         {label}
                     </label>
                     <textarea
                         id="reason"
-                        className="textarea w-full"
+                        className="textarea"
                         rows={3}
                         maxLength={500}
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
                     />
-                </fieldset>
-                <div className="modal-action">
+                </div>
+                <div className="form-actions">
                     <button type="button" className="btn" onClick={onClose} disabled={isWorking}>
                         Back
                     </button>

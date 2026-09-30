@@ -83,9 +83,9 @@ const ProductForm = ({ product, categories, onSaved, onClose }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <ErrorAlert message={serverError} />
-            <div className="grid gap-x-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
                 <TextField label="Name" error={errors.name} {...register("name")} />
                 <TextField label="SKU" hint="Letters, numbers and dashes, e.g. LAP-001" error={errors.sku} {...register("sku")} />
                 <SelectField label="Category" error={errors.category} {...register("category")}>
@@ -105,7 +105,7 @@ const ProductForm = ({ product, categories, onSaved, onClose }) => {
                 <TextField label="Image URL (optional)" error={errors.imageUrl} {...register("imageUrl")} />
             </div>
             <TextField label="Description (optional)" error={errors.description} {...register("description")} />
-            <div className="modal-action">
+            <div className="form-actions">
                 <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </button>

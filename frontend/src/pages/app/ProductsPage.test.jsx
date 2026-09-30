@@ -80,7 +80,16 @@ describe("ProductsPage", () => {
             )
         );
         renderPage("ADMIN");
-        await screen.findByText("Page 1 of 3 · 25 items");
+        await screen.findByText("Laptop Pro");
+        const pagination = screen.getByRole("navigation", { name: "Pagination" });
+        expect(pagination).toHaveTextContent("Showing 1–10 of 25 products");
+        expect(within(pagination).getByRole("button", { name: "Page 1" })).toHaveAttribute("aria-current", "page");
+        expect(within(pagination).getByRole("button", { name: "Previous page" })).toBeDisabled();
+
+        await userEvent.click(within(pagination).getByRole("button", { name: "Page 3" }));
+        await vi.waitFor(() =>
+            expect(api.get).toHaveBeenLastCalledWith("/products", { params: expect.objectContaining({ page: 3 }) })
+        );
 
         await userEvent.click(screen.getByRole("button", { name: "Next page" }));
         await vi.waitFor(() =>

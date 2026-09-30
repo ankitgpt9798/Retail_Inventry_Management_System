@@ -12,6 +12,8 @@ import { loggedOutWithMessage, userUpdated } from "../../store/authSlice";
 import { formatRole } from "../../utils/roles";
 import { formatDateTime } from "../../utils/format";
 import { PASSWORD_HINT, passwordSchema } from "../../utils/passwordSchema";
+import Alert from "../../components/common/Alert";
+import Badge from "../../components/common/Badge";
 
 const profileSchema = z.object({
     name: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name is too long"),
@@ -62,14 +64,14 @@ const ProfileDetailsForm = ({ user }) => {
     };
 
     return (
-        <form className="card border border-base-300 bg-base-100" onSubmit={handleSubmit(onSubmit)} noValidate>
-            <div className="card-body">
+        <form className="card" onSubmit={handleSubmit(onSubmit)} noValidate>
+            <div className="card-body gap-4">
                 <h2 className="card-title">Your details</h2>
                 <ErrorAlert message={serverError} />
-                {saved && <div role="status" className="alert alert-success alert-soft">Profile saved.</div>}
+                {saved && <Alert tone="success">Profile saved.</Alert>}
                 <TextField label="Full name" error={errors.name} {...register("name")} />
                 <TextField label="Phone" type="tel" error={errors.phone} {...register("phone")} />
-                <div className="card-actions mt-2 justify-end">
+                <div className="form-actions mt-0">
                     <button type="submit" className="btn btn-primary" disabled={isSubmitting || !isDirty}>
                         {isSubmitting ? "Saving…" : "Save changes"}
                     </button>
@@ -111,15 +113,15 @@ const ChangePasswordForm = () => {
     };
 
     return (
-        <form className="card border border-base-300 bg-base-100" onSubmit={handleSubmit(onSubmit)} noValidate>
-            <div className="card-body">
+        <form className="card" onSubmit={handleSubmit(onSubmit)} noValidate>
+            <div className="card-body gap-4">
                 <h2 className="card-title">Change password</h2>
                 <p className="text-sm text-base-content/70">You'll be logged out on all devices afterwards.</p>
                 <ErrorAlert message={serverError} />
                 <TextField label="Current password" type="password" autoComplete="current-password" error={errors.currentPassword} {...register("currentPassword")} />
                 <TextField label="New password" type="password" autoComplete="new-password" hint={PASSWORD_HINT} error={errors.newPassword} {...register("newPassword")} />
                 <TextField label="Confirm new password" type="password" autoComplete="new-password" error={errors.confirmPassword} {...register("confirmPassword")} />
-                <div className="card-actions mt-2 justify-end">
+                <div className="form-actions mt-0">
                     <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
                         {isSubmitting ? "Changing…" : "Change password"}
                     </button>
@@ -136,13 +138,13 @@ const ProfilePage = () => {
         <>
             <PageHeader title="My profile" description="Your account details and password." />
 
-            <div className="grid gap-6 lg:grid-cols-3">
-                <div className="card border border-base-300 bg-base-100">
+            <div className="grid gap-6 *:min-w-0 lg:grid-cols-3">
+                <div className="card">
                     <div className="card-body">
                         <h2 className="card-title">Account</h2>
                         <dl className="space-y-3 text-sm">
                             <div><dt className="text-base-content/60">Email</dt><dd className="font-medium">{user.email}</dd></div>
-                            <div><dt className="text-base-content/60">Role</dt><dd><span className="badge badge-primary badge-soft">{formatRole(user.role)}</span></dd></div>
+                            <div><dt className="text-base-content/60">Role</dt><dd><Badge tone="primary">{formatRole(user.role)}</Badge></dd></div>
                             <div><dt className="text-base-content/60">Status</dt><dd className="font-medium">{formatRole(user.status)}</dd></div>
                             <div><dt className="text-base-content/60">Member since</dt><dd>{formatDateTime(user.createdAt)}</dd></div>
                             <div><dt className="text-base-content/60">Last login</dt><dd>{formatDateTime(user.lastLoginAt)}</dd></div>

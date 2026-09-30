@@ -5,7 +5,7 @@ const ChartTooltip = ({ x, y, title, rows }) => {
     return (
         <div
             role="tooltip"
-            className="pointer-events-none absolute z-10 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg"
+            className="pointer-events-none absolute z-10 whitespace-nowrap rounded-xl border border-base-300 bg-base-100 px-3 py-2 text-xs shadow-lg"
             style={{ left: `${x * 100}%`, top: `${y * 100}%`, transform: "translate(-50%, calc(-100% - 8px))" }}
         >
             <div className="mb-1 font-semibold">{title}</div>

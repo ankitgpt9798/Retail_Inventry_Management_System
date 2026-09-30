@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import PageHeader from "../../components/common/PageHeader";
-import StatTile from "../../components/common/StatTile";
+import StatCard from "../../components/common/StatCard";
 import DataTable from "../../components/common/DataTable";
 import ErrorAlert from "../../components/common/ErrorAlert";
 import Loader from "../../components/common/Loader";
@@ -73,15 +73,18 @@ const ReportsPage = () => {
         <>
             <PageHeader title="Reports" description="Stock, sales and purchasing figures for your business." />
 
-            <div className="mb-6 overflow-x-auto">
-                <div role="tablist" aria-label="Reports" className="tabs tabs-box inline-flex w-max">
+            {/* Report picker: scrolls sideways on small screens instead of squeezing the labels */}
+            <div className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                <div role="tablist" aria-label="Reports" className="inline-flex w-max gap-1 rounded-xl border border-base-300 bg-base-100 p-1 shadow-card">
                     {REPORTS.map((item) => (
                         <button
                             key={item.key}
                             type="button"
                             role="tab"
                             aria-selected={item.key === reportKey}
-                            className={`tab ${item.key === reportKey ? "tab-active" : ""}`}
+                            className={`rounded-lg px-3.5 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+                                item.key === reportKey ? "bg-primary text-primary-content shadow-card" : "text-base-content/65 hover:bg-base-200 hover:text-base-content"
+                            }`}
                             onClick={() => chooseReport(item.key)}
                         >
                             {item.label}
@@ -90,15 +93,15 @@ const ReportsPage = () => {
                 </div>
             </div>
 
-            <div className="card border border-base-300 bg-base-100">
-                <div className="border-b border-base-300 p-4">
+            <div className="card">
+                <div className="border-b border-base-300 p-4 sm:px-6">
                     <h2 className="font-semibold">{report.label}</h2>
-                    <p className="text-sm text-base-content/70">{report.description}</p>
+                    <p className="text-sm text-base-content/60">{report.description}</p>
                 </div>
 
                 <ReportFilters filters={report.filters} values={filters} onChange={changeFilter} options={{ warehouses, categories, suppliers }} />
 
-                <div className="space-y-6 p-4" role="tabpanel" aria-label={report.label}>
+                <div className="space-y-6 p-4 sm:p-6" role="tabpanel" aria-label={report.label}>
                     {error ? (
                         <ErrorAlert message={error} onRetry={load} />
                     ) : !data ? (
@@ -106,14 +109,14 @@ const ReportsPage = () => {
                     ) : (
                         <>
                             {tiles.length > 0 && (
-                                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+                                <div className="grid gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3">
                                     {tiles.map((tile) => (
-                                        <StatTile key={tile.label} label={tile.label} value={tile.value} />
+                                        <StatCard key={tile.label} label={tile.label} value={tile.value} />
                                     ))}
                                 </div>
                             )}
-                            {charts.length > 0 && <div className="grid gap-6 lg:grid-cols-2">{charts}</div>}
-                            <div className="overflow-hidden rounded-box border border-base-300">
+                            {charts.length > 0 && <div className="grid gap-6 *:min-w-0 lg:grid-cols-2">{charts}</div>}
+                            <div className="overflow-hidden rounded-xl border border-base-300">
                                 {table.title && <h3 className="border-b border-base-300 px-4 py-3 font-semibold">{table.title}</h3>}
                                 <DataTable columns={table.columns} rows={table.rows} getRowKey={table.getRowKey} emptyText={table.empty || "No data for these filters."} />
                             </div>

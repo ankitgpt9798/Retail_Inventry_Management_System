@@ -33,12 +33,12 @@ const ResetPasswordForm = ({ user, onSaved, onClose }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <p className="mb-2 text-sm text-base-content/70">Choose a new password for {user.name}. Tell them the new password yourself.</p>
             <ErrorAlert message={serverError} />
             <TextField label="New password" type="password" autoComplete="new-password" hint={PASSWORD_HINT} error={errors.newPassword} {...register("newPassword")} />
             <TextField label="Confirm new password" type="password" autoComplete="new-password" error={errors.confirmPassword} {...register("confirmPassword")} />
-            <div className="modal-action">
+            <div className="form-actions">
                 <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </button>

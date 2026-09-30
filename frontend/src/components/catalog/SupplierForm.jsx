@@ -61,9 +61,9 @@ const SupplierForm = ({ supplier, onSaved, onClose }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <ErrorAlert message={serverError} />
-            <div className="grid gap-x-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
                 <TextField label="Company name" error={errors.name} {...register("name")} />
                 <TextField label="Contact person (optional)" error={errors.contactPerson} {...register("contactPerson")} />
                 <TextField label="Email" type="email" error={errors.email} {...register("email")} />
@@ -71,7 +71,7 @@ const SupplierForm = ({ supplier, onSaved, onClose }) => {
                 <TextField label="City (optional)" error={errors.city} {...register("city")} />
                 <TextField label="Address (optional)" error={errors.address} {...register("address")} />
             </div>
-            <div className="modal-action">
+            <div className="form-actions">
                 <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </button>

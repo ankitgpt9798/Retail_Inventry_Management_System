@@ -7,6 +7,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { LogIn } from "lucide-react";
 import TextField from "../../components/common/TextField";
 import ErrorAlert from "../../components/common/ErrorAlert";
+import Alert from "../../components/common/Alert";
 import { clearSessionMessage, loginUser } from "../../store/authSlice";
 import { getHomePath } from "../../utils/navigation";
 
@@ -52,8 +53,8 @@ const LoginPage = () => {
     };
 
     return (
-        <section className="bg-base-200 px-4 py-16">
-            <div className="mx-auto grid max-w-5xl overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-sm md:grid-cols-2">
+        <section className="bg-gradient-to-b from-primary-soft to-base-200 px-4 py-12 sm:py-16">
+            <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-raised md:grid-cols-2">
                 <div className="hidden flex-col justify-between bg-primary p-10 text-primary-content md:flex">
                     <div>
                         <h2 className="text-2xl font-bold">Welcome back</h2>
@@ -66,7 +67,7 @@ const LoginPage = () => {
                     </p>
                 </div>
 
-                <div className="p-8 sm:p-10">
+                <div className="p-6 sm:p-10">
                     <h1 className="text-2xl font-bold">Log in</h1>
                     <p className="mt-1 text-sm text-base-content/70">
                         No account yet? <Link to="/register" className="link link-primary">Request access</Link>
@@ -74,13 +75,13 @@ const LoginPage = () => {
 
                     <div className="mt-6 space-y-3">
                         {sessionMessage && !serverError && (
-                            <div role="status" className="alert alert-warning alert-soft">{sessionMessage}</div>
+                            <Alert tone="warning">{sessionMessage}</Alert>
                         )}
                         <ErrorAlert message={serverError} />
                     </div>
 
                     {/* noValidate: let Zod show our messages instead of the browser's */}
-                    <form className="mt-4 space-y-2" onSubmit={handleSubmit(onSubmit)} noValidate>
+                    <form className="mt-4 space-y-4" onSubmit={handleSubmit(onSubmit)} noValidate>
                         <TextField
                             label="Email"
                             type="email"
@@ -96,7 +97,7 @@ const LoginPage = () => {
                             {...register("password")}
                         />
                         <button type="submit" className="btn btn-primary mt-4 w-full" disabled={isSubmitting}>
-                            {isSubmitting ? <span className="loading loading-spinner loading-sm"></span> : <LogIn size={18} aria-hidden="true" />}
+                            {isSubmitting ? <span className="spinner size-4" aria-hidden="true"></span> : <LogIn size={18} aria-hidden="true" />}
                             {isSubmitting ? "Logging in…" : "Log in"}
                         </button>
                     </form>

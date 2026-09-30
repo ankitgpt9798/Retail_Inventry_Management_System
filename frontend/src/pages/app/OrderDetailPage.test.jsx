@@ -201,4 +201,27 @@ describe("OrderDetailPage", () => {
         expect(await screen.findByText("Order not found")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: /back to orders/i })).toHaveAttribute("href", "/orders");
     });
+
+    test("payment: staff change the payment status; the page reloads with the new one", async () => {
+        showOrder("DELIVERED", { paymentStatus: "PENDING" });
+        api.put.mockResolvedValue({ data: {} });
+        renderPage("STAFF");
+
+        const select = await screen.findByRole("combobox", { name: "Payment status" });
+        expect(screen.getByRole("button", { name: "Update" })).toBeDisabled(); // nothing changed yet
+        await userEvent.selectOptions(select, "PAID");
+        showOrder("DELIVERED", { paymentStatus: "PAID" });
+        await userEvent.click(screen.getByRole("button", { name: "Update" }));
+
+        expect(api.put).toHaveBeenCalledWith("/orders/o1/payment", { paymentStatus: "PAID" });
+        expect(await screen.findByText('ORD-000001 payment is now "Paid".')).toBeInTheDocument();
+    });
+
+    test("payment: an inventory manager only sees the payment status", async () => {
+        showOrder("SHIPPED", { paymentStatus: "PARTIALLY_PAID" });
+        renderPage("INVENTORY_MANAGER");
+
+        expect(await screen.findByText("Partially paid")).toBeInTheDocument();
+        expect(screen.queryByRole("combobox", { name: "Payment status" })).not.toBeInTheDocument();
+    });
 });

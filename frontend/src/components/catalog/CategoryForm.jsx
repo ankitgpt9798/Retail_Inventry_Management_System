@@ -43,11 +43,11 @@ const CategoryForm = ({ category, onSaved, onClose }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-2">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <ErrorAlert message={serverError} />
             <TextField label="Name" error={errors.name} {...register("name")} />
             <TextField label="Description (optional)" error={errors.description} {...register("description")} />
-            <div className="modal-action">
+            <div className="form-actions">
                 <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </button>

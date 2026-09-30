@@ -28,8 +28,8 @@ describe("SuppliersPage", () => {
         expect(await screen.findByText("Acme Electronics")).toBeInTheDocument();
         expect(screen.getByText("sales@acme.in")).toBeInTheDocument();
         expect(screen.getByText("Suresh")).toBeInTheDocument();
-        expect(within(screen.getByText("Bharat Foods").closest("tr")).getByText("Inactive")).toBeInTheDocument();
-        expect(api.get).toHaveBeenCalledWith("/suppliers", { params: { page: 1, limit: 10 } });
+        expect(within(screen.getByRole("article", { name: "Bharat Foods" })).getByText("Inactive")).toBeInTheDocument();
+        expect(api.get).toHaveBeenCalledWith("/suppliers", { params: { sort: "name", page: 1, limit: 10 } });
     });
 
     test("search and status filters are sent to the API", async () => {
@@ -40,7 +40,7 @@ describe("SuppliersPage", () => {
         await userEvent.type(screen.getByRole("searchbox", { name: "Search" }), "acme");
 
         await vi.waitFor(() =>
-            expect(api.get).toHaveBeenLastCalledWith("/suppliers", { params: { search: "acme", status: "ACTIVE", page: 1, limit: 10 } })
+            expect(api.get).toHaveBeenLastCalledWith("/suppliers", { params: { search: "acme", status: "ACTIVE", sort: "name", page: 1, limit: 10 } })
         );
     });
 

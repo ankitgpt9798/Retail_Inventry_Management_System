@@ -32,12 +32,12 @@ const editSchema = z.object(baseFields).superRefine(needsSupplier);
 // A value the user may see but not change. The real (hidden) input goes in as `children`,
 // so the form still has the value when it is submitted.
 const LockedField = ({ label, value, hint, children }) => (
-    <fieldset className="fieldset">
-        <legend className="fieldset-legend">{label}</legend>
+    <div>
+        <p className="field-label">{label}</p>
         {children}
-        <input className="input w-full" value={value} readOnly aria-label={label} />
-        <p className="label">{hint}</p>
-    </fieldset>
+        <input className="input bg-base-200" value={value} readOnly aria-label={label} />
+        <p className="field-hint">{hint}</p>
+    </div>
 );
 
 // Create (user = null) or edit (user = the row being edited).
@@ -100,9 +100,9 @@ const UserForm = ({ user, suppliers, isSelf = false, onSaved, onClose }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <ErrorAlert message={serverError} />
-            <div className="grid gap-x-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
                 <TextField label="Full name" error={errors.name} {...register("name")} />
                 <TextField label="Email" type="email" autoComplete="off" error={errors.email} {...register("email")} />
                 <TextField label="Phone (optional)" type="tel" error={errors.phone} {...register("phone")} />
@@ -145,7 +145,7 @@ const UserForm = ({ user, suppliers, isSelf = false, onSaved, onClose }) => {
                     <TextField label="Password" type="password" autoComplete="new-password" hint={PASSWORD_HINT} error={errors.password} {...register("password")} />
                 )}
             </div>
-            <div className="modal-action">
+            <div className="form-actions">
                 <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </button>

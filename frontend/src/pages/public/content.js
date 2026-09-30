@@ -11,8 +11,7 @@ import {
     Warehouse
 } from "lucide-react";
 
-// What the system does — shared by the Home and Features pages,
-// so both always describe the same modules
+// What the system does — shown in the Features section of the home page
 export const MODULES = [
     {
         icon: Package,

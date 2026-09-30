@@ -26,9 +26,9 @@ const ConfirmModal = ({ title, message, confirmLabel, confirmClass = "btn-error"
     return (
         <Modal title={title} onClose={onClose}>
             <div className="space-y-4">
-                <p>{message}</p>
+                <p className="text-sm text-base-content/80">{message}</p>
                 <ErrorAlert message={error} />
-                <div className="modal-action mt-2">
+                <div className="form-actions mt-2">
                     <button type="button" className="btn" onClick={onClose} disabled={isWorking}>
                         Cancel
                     </button>

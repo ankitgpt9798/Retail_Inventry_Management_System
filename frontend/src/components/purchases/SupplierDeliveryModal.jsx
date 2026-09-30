@@ -43,12 +43,12 @@ const SupplierDeliveryModal = ({ purchase, mode, onSaved, onClose }) => {
 
     return (
         <Modal title={isConfirm ? `Confirm ${purchase.poNumber}` : "Update delivery details"} onClose={onClose}>
-            <form onSubmit={handleSubmit} noValidate>
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
                 {isConfirm && <p className="mb-2 text-sm text-base-content/70">Tell the buyer you accept this order. You can add a delivery date and a note.</p>}
                 <ErrorAlert message={error} />
                 <TextField label="Expected delivery date" type="date" id="expectedDeliveryDate" value={date} onChange={(event) => setDate(event.target.value)} />
                 <TextField label="Delivery note" id="deliveryNote" value={note} maxLength={1000} onChange={(event) => setNote(event.target.value)} />
-                <div className="modal-action">
+                <div className="form-actions">
                     <button type="button" className="btn" onClick={onClose} disabled={isWorking}>
                         Cancel
                     </button>

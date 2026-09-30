@@ -7,8 +7,6 @@ import { PAGE_ACCESS } from "../utils/navigation";
 
 // The public website loads with the first visit (it is small and everyone sees it)
 import HomePage from "../pages/public/HomePage";
-import FeaturesPage from "../pages/public/FeaturesPage";
-import AboutPage from "../pages/public/AboutPage";
 import ContactPage from "../pages/public/ContactPage";
 import LoginPage from "../pages/public/LoginPage";
 import RegisterPage from "../pages/public/RegisterPage";
@@ -28,6 +26,7 @@ const TransfersPage = lazy(() => import("../pages/app/TransfersPage"));
 const OrdersPage = lazy(() => import("../pages/app/OrdersPage"));
 const OrderFormPage = lazy(() => import("../pages/app/OrderFormPage"));
 const OrderDetailPage = lazy(() => import("../pages/app/OrderDetailPage"));
+const CustomersPage = lazy(() => import("../pages/app/CustomersPage"));
 const FulfillmentPage = lazy(() => import("../pages/app/FulfillmentPage"));
 const SuppliersPage = lazy(() => import("../pages/app/SuppliersPage"));
 const PurchasesPage = lazy(() => import("../pages/app/PurchasesPage"));
@@ -52,6 +51,7 @@ const APP_PAGES = [
     { path: "/orders/:id", access: "orders", Page: OrderDetailPage },
     { path: "/orders/:id/edit", access: "orderForm", Page: OrderFormPage },
     { path: "/fulfillment", access: "fulfillment", Page: FulfillmentPage },
+    { path: "/customers", access: "customers", Page: CustomersPage },
     { path: "/suppliers", access: "suppliers", Page: SuppliersPage },
     { path: "/purchases", access: "purchases", Page: PurchasesPage },
     { path: "/purchases/new", access: "purchaseForm", Page: PurchaseFormPage },
@@ -73,8 +73,6 @@ const AppRoutes = () => {
         <Routes>
             <Route element={<PublicLayout />}>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/features" element={<FeaturesPage />} />
-                <Route path="/about" element={<AboutPage />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />

@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCheck, Trash2 } from "lucide-react";
+import { Bell, CheckCheck, Trash2 } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
-import { FilterSelect } from "../../components/common/ListToolbar";
+import PageAlerts from "../../components/common/PageAlerts";
+import ListToolbar, { FilterSelect } from "../../components/common/ListToolbar";
+import RecordList from "../../components/common/RecordList";
 import Pagination from "../../components/common/Pagination";
-import ErrorAlert from "../../components/common/ErrorAlert";
-import Loader from "../../components/common/Loader";
+import Badge from "../../components/common/Badge";
+import useFilters from "../../hooks/useFilters";
 import useList from "../../hooks/useList";
 import { NOTIFICATIONS_CHANGED } from "../../hooks/useUnreadCount";
 import api, { getErrorMessage } from "../../services/api";
@@ -14,29 +16,25 @@ import { NOTIFICATION_TYPE_LABELS } from "../../utils/notificationTypes";
 
 const PAGE_SIZE = 10;
 
+const INITIAL_FILTERS = { show: "all", type: "" };
+
 // Tells the bell in the top bar to refresh its unread number right away
 const announceChange = () => window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
 
 // The full notification inbox (the bell only shows the latest five)
 const NotificationsPage = () => {
     const navigate = useNavigate();
-    const [unreadOnly, setUnreadOnly] = useState(false);
-    const [type, setType] = useState("");
-    const [page, setPage] = useState(1);
+    const { filters, setFilter, clearFilters, hasFilters, page, setPage } = useFilters(INITIAL_FILTERS);
+    const unreadOnly = filters.show === "unread";
     const [actionError, setActionError] = useState("");
 
     const { items, pagination, data, isLoading, error, reload } = useList("/notifications", "notifications", {
         isRead: unreadOnly ? "false" : "",
-        type,
+        type: filters.type,
         page,
         limit: PAGE_SIZE
     });
     const unreadCount = data?.unreadCount ?? 0;
-
-    const withPageReset = (setter) => (value) => {
-        setter(value);
-        setPage(1);
-    };
 
     // Runs one request, then refreshes the list and the bell; a failure is shown above the list
     const change = async (request, fallbackMessage) => {
@@ -73,73 +71,86 @@ const NotificationsPage = () => {
                 </button>
             </PageHeader>
 
-            {actionError && (
-                <div className="mb-4">
-                    <ErrorAlert message={actionError} />
-                </div>
-            )}
+            <PageAlerts error={actionError} />
 
-            <div className="card border border-base-300 bg-base-100">
-                <div className="flex flex-wrap items-center gap-3 border-b border-base-300 p-4">
-                    <div role="tablist" aria-label="Show" className="tabs tabs-box">
-                        <button type="button" role="tab" aria-selected={!unreadOnly} className={`tab ${!unreadOnly ? "tab-active" : ""}`} onClick={() => withPageReset(setUnreadOnly)(false)}>
-                            All
+            <ListToolbar hasFilters={filters.type !== ""} onClear={clearFilters}>
+                <div role="tablist" aria-label="Show" className="inline-flex w-full gap-1 rounded-lg bg-base-200 p-1 md:w-auto">
+                    {[
+                        { value: "all", label: "All" },
+                        { value: "unread", label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}` }
+                    ].map((tab) => (
+                        <button
+                            key={tab.value}
+                            type="button"
+                            role="tab"
+                            aria-selected={filters.show === tab.value}
+                            onClick={() => setFilter("show", tab.value)}
+                            className={`flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors md:flex-none ${
+                                filters.show === tab.value ? "bg-base-100 text-base-content shadow-card" : "text-base-content/60 hover:text-base-content"
+                            }`}
+                        >
+                            {tab.label}
                         </button>
-                        <button type="button" role="tab" aria-selected={unreadOnly} className={`tab ${unreadOnly ? "tab-active" : ""}`} onClick={() => withPageReset(setUnreadOnly)(true)}>
-                            Unread{unreadCount > 0 ? ` (${unreadCount})` : ""}
-                        </button>
-                    </div>
-                    <FilterSelect label="Type" value={type} onChange={withPageReset(setType)}>
-                        <option value="">All types</option>
-                        {Object.entries(NOTIFICATION_TYPE_LABELS).map(([value, label]) => (
-                            <option key={value} value={value}>
-                                {label}
-                            </option>
-                        ))}
-                    </FilterSelect>
+                    ))}
                 </div>
+                <FilterSelect label="Type" value={filters.type} onChange={(value) => setFilter("type", value)}>
+                    <option value="">All types</option>
+                    {Object.entries(NOTIFICATION_TYPE_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                            {label}
+                        </option>
+                    ))}
+                </FilterSelect>
+            </ListToolbar>
 
-                {error ? (
-                    <div className="p-4">
-                        <ErrorAlert message={error} onRetry={reload} />
-                    </div>
-                ) : isLoading ? (
-                    <Loader text="Loading notifications…" />
-                ) : items.length === 0 ? (
-                    <p className="p-10 text-center text-base-content/70">{unreadOnly ? "You're all caught up." : "No notifications yet."}</p>
-                ) : (
-                    <ul>
-                        {items.map((notification) => (
-                            <li key={notification._id} className={`flex items-start gap-3 border-b border-base-200 px-4 py-3 last:border-b-0 ${notification.isRead ? "opacity-70" : ""}`}>
-                                <span
-                                    className={`mt-2 h-2 w-2 shrink-0 rounded-full ${notification.isRead ? "bg-transparent" : "bg-primary"}`}
-                                    aria-label={notification.isRead ? undefined : "Unread"}
-                                ></span>
-                                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => open(notification)}>
-                                    <span className="flex flex-wrap items-center gap-2">
-                                        <span className="font-medium">{notification.title}</span>
-                                        <span className="badge badge-sm badge-soft">{NOTIFICATION_TYPE_LABELS[notification.type] || notification.type}</span>
-                                    </span>
-                                    <span className="mt-1 block text-sm text-base-content/70">{notification.message}</span>
-                                    <span className="mt-1 block text-xs text-base-content/50">{formatDateTime(notification.createdAt)}</span>
+            <RecordList
+                items={items}
+                isLoading={isLoading}
+                error={error}
+                onRetry={reload}
+                noun="notifications"
+                isFiltered={hasFilters && !unreadOnly}
+                onClearFilters={clearFilters}
+                emptyIcon={Bell}
+                emptyTitle={unreadOnly ? "You're all caught up." : "No notifications yet."}
+                grid="grid gap-3"
+                skeletons={4}
+                renderItem={(notification) => (
+                    <article
+                        key={notification._id}
+                        aria-label={notification.title}
+                        className={`flex items-start gap-3 rounded-xl border bg-base-100 p-4 shadow-card ${notification.isRead ? "border-base-300" : "border-primary/30 bg-primary-soft/40"}`}
+                    >
+                        <span
+                            className={`mt-2 size-2 shrink-0 rounded-full ${notification.isRead ? "bg-transparent" : "bg-primary"}`}
+                            aria-label={notification.isRead ? undefined : "Unread"}
+                        ></span>
+                        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => open(notification)}>
+                            <span className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium">{notification.title}</span>
+                                <Badge tone="neutral" dot={false}>
+                                    {NOTIFICATION_TYPE_LABELS[notification.type] || notification.type}
+                                </Badge>
+                            </span>
+                            <span className="mt-1 block break-words text-sm text-base-content/70">{notification.message}</span>
+                            <span className="mt-1 block text-xs text-base-content/50">{formatDateTime(notification.createdAt)}</span>
+                        </button>
+                        <div className="flex shrink-0 flex-col gap-1 sm:flex-row">
+                            {!notification.isRead && (
+                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => markRead(notification)} aria-label={`Mark "${notification.title}" as read`}>
+                                    <CheckCheck size={14} aria-hidden="true" />
+                                    <span className="hidden sm:inline">Mark read</span>
                                 </button>
-                                <div className="flex shrink-0 gap-1">
-                                    {!notification.isRead && (
-                                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => markRead(notification)} aria-label={`Mark "${notification.title}" as read`}>
-                                            Mark read
-                                        </button>
-                                    )}
-                                    <button type="button" className="btn btn-ghost btn-sm btn-square text-error" onClick={() => remove(notification)} aria-label={`Delete "${notification.title}"`}>
-                                        <Trash2 size={14} aria-hidden="true" />
-                                    </button>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                            )}
+                            <button type="button" className="btn btn-ghost btn-sm btn-square text-error" onClick={() => remove(notification)} aria-label={`Delete "${notification.title}"`}>
+                                <Trash2 size={14} aria-hidden="true" />
+                            </button>
+                        </div>
+                    </article>
                 )}
+            />
 
-                <Pagination pagination={pagination} onPageChange={setPage} />
-            </div>
+            <Pagination pagination={pagination} onPageChange={setPage} noun="notifications" />
         </>
     );
 };

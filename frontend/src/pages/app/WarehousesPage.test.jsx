@@ -37,7 +37,7 @@ describe("WarehousesPage", () => {
 
         expect(await screen.findByText("Delhi Central")).toBeInTheDocument();
         expect(screen.getByText("DEL-01")).toBeInTheDocument();
-        expect(screen.getByText("5,000")).toBeInTheDocument();
+        expect(screen.getByText("5,000 units")).toBeInTheDocument();
         expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
     });
 

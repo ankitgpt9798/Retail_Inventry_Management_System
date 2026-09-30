@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import PurchasesPage from "./PurchasesPage";
 import api from "../../services/api";
@@ -34,7 +34,9 @@ describe("PurchasesPage — manager", () => {
 
         expect(await screen.findByText("PO-000001")).toBeInTheDocument();
         expect(screen.getAllByText("Acme Electronics").length).toBeGreaterThan(0);
-        expect(screen.getByText("Noida Hub", { selector: "td" })).toBeInTheDocument();
+        const card = screen.getByRole("article", { name: "PO-000001" });
+        expect(within(card).getByText("Deliver to").nextSibling).toHaveTextContent("Noida Hub");
+        expect(within(card).getByText("Ordered")).toBeInTheDocument();
         expect(screen.getByText("₹50,000.00")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "View PO-000001" })).toHaveAttribute("href", "/purchases/po1");
         expect(screen.getByRole("link", { name: /new purchase order/i })).toHaveAttribute("href", "/purchases/new");
@@ -51,7 +53,7 @@ describe("PurchasesPage — manager", () => {
 
         await vi.waitFor(() =>
             expect(api.get).toHaveBeenLastCalledWith("/purchases", {
-                params: { search: "PO-0", status: "APPROVED", supplier: "s1", warehouse: "w1", page: 1, limit: 10 }
+                params: { search: "PO-0", status: "APPROVED", supplier: "s1", warehouse: "w1", sort: "newest", page: 1, limit: 10 }
             })
         );
     });
@@ -66,7 +68,8 @@ describe("PurchasesPage — supplier portal", () => {
         expect(screen.queryByRole("link", { name: /new purchase order/i })).not.toBeInTheDocument();
         expect(screen.queryByRole("combobox", { name: "Supplier" })).not.toBeInTheDocument();
         expect(screen.queryByRole("combobox", { name: "Warehouse" })).not.toBeInTheDocument();
-        expect(screen.queryByRole("columnheader", { name: "Supplier" })).not.toBeInTheDocument();
+        // The card is titled with where to deliver, not with the supplier (that is the supplier themselves)
+        expect(screen.getByRole("heading", { name: "Deliver to Noida Hub" })).toBeInTheDocument();
         // Those lists are forbidden for suppliers, so they must not even be requested
         expect(api.get).not.toHaveBeenCalledWith("/suppliers", expect.anything());
         expect(api.get).not.toHaveBeenCalledWith("/warehouses", expect.anything());

@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import api, { getErrorMessage } from "../../services/api";
 import useUnreadCount from "../../hooks/useUnreadCount";
+import useDropdown from "../../hooks/useDropdown";
 import { formatDateTime } from "../../utils/format";
 
 // The bell in the top navigation: unread count + the 5 latest notifications.
@@ -12,7 +13,7 @@ const NotificationBell = () => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const detailsRef = useRef(null);
+    const { ref: detailsRef, close } = useDropdown();
     const navigate = useNavigate();
 
     // <details> opens/closes the dropdown; we load the list each time it opens
@@ -37,7 +38,7 @@ const NotificationBell = () => {
     const openNotification = async (notification) => {
         await markAsRead(notification);
         if (notification.link) {
-            detailsRef.current.open = false;
+            close();
             navigate(notification.link);
         }
     };
@@ -68,26 +69,24 @@ const NotificationBell = () => {
     };
 
     return (
-        <details ref={detailsRef} className="dropdown dropdown-end" onToggle={handleToggle}>
+        <details ref={detailsRef} className="relative" onToggle={handleToggle}>
             <summary
-                className="btn btn-ghost btn-circle list-none"
+                className="relative flex size-10 cursor-pointer list-none items-center justify-center rounded-full text-base-content/70 hover:bg-base-200 hover:text-base-content [&::-webkit-details-marker]:hidden"
                 aria-label={`Notifications, ${unreadCount} unread`}
             >
-                <div className="indicator">
-                    <Bell size={20} aria-hidden="true" />
-                    {unreadCount > 0 && (
-                        <span className="indicator-item badge badge-error badge-xs">
-                            {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
-                    )}
-                </div>
+                <Bell size={20} aria-hidden="true" />
+                {unreadCount > 0 && (
+                    <span className="absolute right-0.5 top-0.5 flex h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full bg-error px-1 text-[0.65rem] font-semibold text-white ring-2 ring-base-100">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                )}
             </summary>
 
-            <div className="dropdown-content z-40 mt-2 w-80 rounded-box border border-base-300 bg-base-100 shadow-lg">
+            <div className="fixed inset-x-3 top-16 z-40 mt-1 rounded-xl border border-base-300 bg-base-100 shadow-raised sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-96">
                 <div className="flex items-center justify-between border-b border-base-300 px-4 py-3">
                     <span className="font-semibold">Notifications</span>
                     {unreadCount > 0 && (
-                        <button type="button" className="btn btn-link btn-xs" onClick={markAllAsRead}>
+                        <button type="button" className="btn btn-link text-xs" onClick={markAllAsRead}>
                             Mark all as read
                         </button>
                     )}
@@ -104,7 +103,7 @@ const NotificationBell = () => {
                             type="button"
                             key={notification._id}
                             onClick={() => openNotification(notification)}
-                            className={`block w-full border-b border-base-200 px-4 py-3 text-left hover:bg-base-200 ${notification.isRead ? "opacity-60" : ""}`}
+                            className={`block w-full border-b border-base-300/60 px-4 py-3 text-left hover:bg-base-200 ${notification.isRead ? "opacity-60" : ""}`}
                         >
                             <span className="flex items-center gap-2 text-sm font-medium">
                                 {!notification.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread"></span>}
@@ -117,7 +116,7 @@ const NotificationBell = () => {
                 </div>
 
                 <div className="border-t border-base-300 px-4 py-2 text-center">
-                    <Link to="/notifications" className="link link-primary text-sm" onClick={() => { detailsRef.current.open = false; }}>
+                    <Link to="/notifications" className="text-sm font-medium text-primary hover:underline" onClick={close}>
                         View all notifications
                     </Link>
                 </div>

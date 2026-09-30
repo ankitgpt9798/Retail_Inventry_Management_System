@@ -13,7 +13,7 @@ vi.mock("../../services/api", async (importOriginal) => {
 const orders = [
     {
         _id: "o1", orderNumber: "ORD-000001", status: "CONFIRMED", totalAmount: 120472.1, createdAt: "2026-09-28T10:00:00.000Z",
-        customer: { name: "Priya Sharma" }, warehouse: { name: "Delhi Central", code: "DEL-01" }
+        customer: { name: "Priya Sharma" }, warehouse: { name: "Delhi Central", code: "DEL-01" }, paymentStatus: "PAID"
     },
     {
         _id: "o2", orderNumber: "ORD-000002", status: "CANCELLED", totalAmount: 500, createdAt: "2026-09-27T10:00:00.000Z",
@@ -42,7 +42,7 @@ describe("OrdersPage", () => {
         expect(screen.getByText("Priya Sharma")).toBeInTheDocument();
         expect(screen.getByText("₹1,20,472.10")).toBeInTheDocument();
         expect(screen.getByRole("link", { name: "View ORD-000001" })).toHaveAttribute("href", "/orders/o1");
-        expect(api.get).toHaveBeenCalledWith("/orders", { params: { page: 1, limit: 10 } });
+        expect(api.get).toHaveBeenCalledWith("/orders", { params: { sort: "newest", page: 1, limit: 10 } });
     });
 
     test("staff and admin can start a new order", async () => {
@@ -72,9 +72,23 @@ describe("OrdersPage", () => {
             expect(api.get).toHaveBeenLastCalledWith("/orders", {
                 params: {
                     search: "priya", status: "SHIPPED", warehouse: "w1",
-                    from: "2026-09-01T00:00:00", to: "2026-09-28T23:59:59", page: 1, limit: 10
+                    from: "2026-09-01T00:00:00", to: "2026-09-28T23:59:59", sort: "newest", page: 1, limit: 10
                 }
             })
+        );
+    });
+
+    test("payment status and sort order are sent to the API; each card shows both statuses", async () => {
+        renderPage("ADMIN");
+        const card = await screen.findByRole("article", { name: "ORD-000001" });
+        expect(card).toHaveTextContent("Confirmed");
+        expect(card).toHaveTextContent("Paid");
+
+        await userEvent.selectOptions(screen.getByRole("combobox", { name: "Payment" }), "REFUNDED");
+        await userEvent.selectOptions(screen.getByRole("combobox", { name: "Sort by" }), "amount_high");
+
+        await vi.waitFor(() =>
+            expect(api.get).toHaveBeenLastCalledWith("/orders", { params: { paymentStatus: "REFUNDED", sort: "amount_high", page: 1, limit: 10 } })
         );
     });
 

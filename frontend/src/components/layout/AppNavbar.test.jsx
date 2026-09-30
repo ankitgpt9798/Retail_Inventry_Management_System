@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AppNavbar from "./AppNavbar";
+import AppSidebar from "./AppSidebar";
 import api from "../../services/api";
 import { authState, renderWithProviders } from "../../test/testUtils";
 
@@ -17,7 +18,18 @@ beforeEach(() => {
     api.post.mockResolvedValue({ data: {} });
 });
 
-describe("AppNavbar", () => {
+// The sidebar's links, grouped by their heading: { "": ["Dashboard"], Catalog: [...], … }
+const sidebarSections = () => {
+    const nav = screen.getByRole("navigation", { name: "App" });
+    const sections = {};
+    for (const list of within(nav).getAllByRole("list")) {
+        const heading = list.previousElementSibling?.textContent || "";
+        sections[heading] = within(list).getAllByRole("link").map((link) => link.textContent.trim());
+    }
+    return sections;
+};
+
+describe("AppNavbar (top bar)", () => {
     test("shows the user's name, role and unread count", async () => {
         renderWithProviders(<AppNavbar />, { preloadedState: authState("INVENTORY_MANAGER") });
 
@@ -27,65 +39,29 @@ describe("AppNavbar", () => {
         expect(api.get).toHaveBeenCalledWith("/notifications/unread-count");
     });
 
-    test("links follow the role: staff see Dashboard, suppliers don't", () => {
-        const { unmount } = renderWithProviders(<AppNavbar />, { preloadedState: authState("STAFF") });
-        expect(screen.getAllByRole("link", { name: /dashboard/i }).length).toBeGreaterThan(0);
-        unmount();
-
-        renderWithProviders(<AppNavbar />, { preloadedState: authState("SUPPLIER") });
-        expect(screen.queryByRole("link", { name: /dashboard/i })).not.toBeInTheDocument();
-    });
-
-    test("the menus are rebuilt (closed) after every page change, so they don't stay open over the new page", async () => {
+    test("the phone menu opens a drawer with every link, and closes after choosing a page", async () => {
         const user = userEvent.setup();
         renderWithProviders(<AppNavbar />, { preloadedState: authState("ADMIN"), route: "/dashboard" });
 
-        const phoneMenuBefore = screen.getByLabelText("Open menu").parentElement;
-        const catalogBefore = within(screen.getByRole("navigation", { name: "App" })).getByRole("button", { name: "Catalog" }).parentElement;
+        expect(screen.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
+        await user.click(screen.getByLabelText("Open menu"));
 
-        // Choose a page in the phone menu: the address changes
-        await user.click(within(phoneMenuBefore).getByRole("link", { name: "Reports" }));
+        const drawer = screen.getByRole("dialog", { name: "Menu" });
+        expect(within(drawer).getAllByRole("link").filter((link) => link.closest("nav"))).toHaveLength(15);
+
+        await user.click(within(drawer).getByRole("link", { name: "Reports" }));
         expect(screen.getByTestId("location")).toHaveTextContent("/reports");
-
-        // Both menus are brand-new elements now (a new element has no focus, so it renders closed)
-        expect(screen.getByLabelText("Open menu").parentElement).not.toBe(phoneMenuBefore);
-        expect(within(screen.getByRole("navigation", { name: "App" })).getByRole("button", { name: "Catalog" }).parentElement).not.toBe(catalogBefore);
-        // ...and the phone menu is still complete
-        expect(within(screen.getByLabelText("Open menu").parentElement).getAllByRole("link").length).toBe(13);
+        expect(screen.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
     });
 
-    test("related pages sit under drop-down groups, so the bar never overflows", () => {
-        renderWithProviders(<AppNavbar />, { preloadedState: authState("ADMIN") });
+    test("the drawer also closes with the Escape key", async () => {
+        const user = userEvent.setup();
+        renderWithProviders(<AppNavbar />, { preloadedState: authState("STAFF") });
 
-        const desktop = within(screen.getByRole("navigation", { name: "App" }));
-        // single links stay single, related ones are grouped
-        expect(desktop.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
-        expect(desktop.getByRole("link", { name: /reports/i })).toBeInTheDocument();
-        for (const group of ["Catalog", "Stock", "Sales", "Purchasing", "Admin"]) {
-            expect(desktop.getByRole("button", { name: group })).toBeInTheDocument();
-        }
-        // the pages themselves are inside their group
-        const stockMenu = desktop.getByRole("button", { name: "Stock" }).nextElementSibling;
-        expect(within(stockMenu).getAllByRole("link").map((link) => link.textContent.trim())).toEqual(["Inventory", "Warehouses", "Transfers"]);
-        const adminMenu = desktop.getByRole("button", { name: "Admin" }).nextElementSibling;
-        expect(within(adminMenu).getAllByRole("link").map((link) => link.textContent.trim())).toEqual(["Users", "Audit log"]);
-    });
+        await user.click(screen.getByLabelText("Open menu"));
+        await user.keyboard("{Escape}");
 
-    test("groups only show what the role may open", () => {
-        renderWithProviders(<AppNavbar />, { preloadedState: authState("INVENTORY_MANAGER") });
-
-        const desktop = within(screen.getByRole("navigation", { name: "App" }));
-        expect(desktop.queryByRole("button", { name: "Admin" })).not.toBeInTheDocument();
-        expect(desktop.getByRole("link", { name: /reports/i })).toBeInTheDocument();
-        expect(desktop.getByRole("button", { name: "Purchasing" })).toBeInTheDocument();
-    });
-
-    test("a supplier sees just their purchase orders as a plain link, no drop-downs", () => {
-        renderWithProviders(<AppNavbar />, { preloadedState: authState("SUPPLIER") });
-
-        const desktop = within(screen.getByRole("navigation", { name: "App" }));
-        expect(desktop.getAllByRole("link").map((link) => link.textContent.trim())).toEqual(["Purchases"]);
-        expect(desktop.queryByRole("button")).not.toBeInTheDocument();
+        expect(screen.queryByRole("dialog", { name: "Menu" })).not.toBeInTheDocument();
     });
 
     test("log out → tells the backend, clears the user, goes to /login", async () => {
@@ -97,5 +73,55 @@ describe("AppNavbar", () => {
 
         expect(api.post).toHaveBeenCalledWith("/auth/logout");
         expect(store.getState().auth.user).toBeNull();
+    });
+});
+
+describe("AppSidebar", () => {
+    test("links follow the role: staff see Dashboard, suppliers don't", () => {
+        const { unmount } = renderWithProviders(<AppSidebar pathname="/dashboard" />, { preloadedState: authState("STAFF") });
+        expect(screen.getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
+        unmount();
+
+        renderWithProviders(<AppSidebar pathname="/purchases" />, { preloadedState: authState("SUPPLIER") });
+        expect(screen.queryByRole("link", { name: /dashboard/i })).not.toBeInTheDocument();
+    });
+
+    test("an admin sees every section under its heading", () => {
+        renderWithProviders(<AppSidebar pathname="/dashboard" />, { preloadedState: authState("ADMIN") });
+
+        expect(sidebarSections()).toEqual({
+            "": ["Dashboard"],
+            Catalog: ["Products", "Categories"],
+            Stock: ["Inventory", "Stock history", "Warehouses", "Transfers"],
+            Sales: ["Orders", "Fulfillment", "Customers"],
+            Purchasing: ["Suppliers", "Purchases"],
+            Insights: ["Reports"],
+            Admin: ["Users", "Audit log"]
+        });
+    });
+
+    test("sections only show what the role may open", () => {
+        renderWithProviders(<AppSidebar pathname="/dashboard" />, { preloadedState: authState("INVENTORY_MANAGER") });
+
+        const sections = sidebarSections();
+        expect(sections.Admin).toBeUndefined();
+        expect(sections.Insights).toEqual(["Reports"]);
+        expect(sections.Purchasing).toEqual(["Suppliers", "Purchases"]);
+    });
+
+    test("a supplier sees just their purchase orders", () => {
+        renderWithProviders(<AppSidebar pathname="/purchases" />, { preloadedState: authState("SUPPLIER") });
+
+        expect(sidebarSections()).toEqual({ Purchasing: ["Purchases"] });
+    });
+
+    test("the current page is marked, including its detail pages; Inventory is not marked on Stock history", () => {
+        const { unmount } = renderWithProviders(<AppSidebar pathname="/orders/abc123" />, { preloadedState: authState("ADMIN") });
+        expect(screen.getByRole("link", { name: "Orders" })).toHaveAttribute("aria-current", "page");
+        unmount();
+
+        renderWithProviders(<AppSidebar pathname="/inventory/history" />, { preloadedState: authState("ADMIN") });
+        expect(screen.getByRole("link", { name: "Stock history" })).toHaveAttribute("aria-current", "page");
+        expect(screen.getByRole("link", { name: "Inventory" })).not.toHaveAttribute("aria-current");
     });
 });

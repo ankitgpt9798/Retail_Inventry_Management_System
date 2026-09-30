@@ -20,7 +20,8 @@ const dashboardResponse = {
             kpis: {
                 totalProducts: 4, totalCategories: 2, totalWarehouses: 3, totalSuppliers: 2,
                 totalInventory: 1917, lowStockProducts: 1,
-                totalOrders: 1, pendingOrders: 0, completedOrders: 1, pendingPurchases: 0
+                totalOrders: 1, pendingOrders: 0, completedOrders: 1, pendingPurchases: 0,
+                stockValue: 10567900, outOfStockProducts: 2, totalCustomers: 5, unconfirmedOrders: 0
             },
             charts: { ordersByMonth: [{ month: "2026-08", orders: 0, revenue: 0 }, { month: "2026-09", orders: 1, revenue: 120472.1 }] }
         }
@@ -37,6 +38,15 @@ describe("DashboardPage", () => {
         expect(screen.getByTestId("kpi-lowStockProducts")).toHaveTextContent("1");
         expect(screen.getByText(/1 sales orders · ₹1,20,472.10 revenue/)).toBeInTheDocument();
         expect(api.get).toHaveBeenCalledWith("/reports/dashboard");
+    });
+
+    test("stock value, out of stock and customers come from the API; big rupee amounts are shown in full", async () => {
+        api.get.mockResolvedValue(dashboardResponse);
+        renderWithProviders(<DashboardPage />, { preloadedState: authState("ADMIN") });
+
+        expect(await screen.findByTestId("kpi-stockValue")).toHaveTextContent("₹1,05,67,900.00");
+        expect(screen.getByTestId("kpi-outOfStockProducts")).toHaveTextContent("2");
+        expect(screen.getByTestId("kpi-totalCustomers")).toHaveTextContent("5");
     });
 
     test("greets the user by first name", async () => {

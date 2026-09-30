@@ -58,7 +58,7 @@ const StockMovementForm = ({ mode, preset, products, warehouses, onSaved, onClos
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <ErrorAlert message={serverError} />
             <SelectField label="Product" error={errors.product} {...register("product")}>
                 <option value="">Choose a product…</option>
@@ -83,7 +83,7 @@ const StockMovementForm = ({ mode, preset, products, warehouses, onSaved, onClos
                 error={errors.note}
                 {...register("note")}
             />
-            <div className="modal-action">
+            <div className="form-actions">
                 <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </button>

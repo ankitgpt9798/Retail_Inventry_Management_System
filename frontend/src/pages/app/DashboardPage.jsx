@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { Link } from "react-router-dom";
 import {
+    ArrowRight,
     Boxes,
     CircleCheck,
     ClipboardList,
     Clock,
+    Contact,
     FolderTree,
+    IndianRupee,
     Package,
+    PackageX,
     ShoppingCart,
     Truck,
     TriangleAlert,
@@ -16,35 +21,40 @@ import api, { getErrorMessage } from "../../services/api";
 import PageHeader from "../../components/common/PageHeader";
 import Loader from "../../components/common/Loader";
 import ErrorAlert from "../../components/common/ErrorAlert";
+import StatCard from "../../components/common/StatCard";
 import DashboardCharts from "../../components/charts/DashboardCharts";
 import { formatCurrency, formatNumber, greeting } from "../../utils/format";
 
-// The 10 KPIs from the spec, grouped the way people think about them.
-// "tone" colours the icon; "warnWhenAboveZero" highlights numbers that need attention.
+// Every number comes from GET /api/reports/dashboard, which counts the real database records.
+//   format: how to show the value · tone: icon colour · warnWhenAboveZero: highlight numbers that need attention
 const KPI_GROUPS = [
-    {
-        title: "Catalog & locations",
-        items: [
-            { key: "totalProducts", label: "Active products", icon: Package, tone: "text-primary" },
-            { key: "totalCategories", label: "Categories", icon: FolderTree, tone: "text-primary" },
-            { key: "totalWarehouses", label: "Warehouses", icon: Warehouse, tone: "text-primary" },
-            { key: "totalSuppliers", label: "Suppliers", icon: Truck, tone: "text-primary" }
-        ]
-    },
     {
         title: "Stock",
         items: [
-            { key: "totalInventory", label: "Units in stock", icon: Boxes, tone: "text-secondary" },
-            { key: "lowStockProducts", label: "Low-stock products", icon: TriangleAlert, tone: "text-warning", warnWhenAboveZero: true }
+            { key: "stockValue", label: "Stock value", hint: "Units on hand × cost price", icon: IndianRupee, tone: "success", format: formatCurrency },
+            { key: "totalInventory", label: "Units in stock", icon: Boxes, tone: "primary" },
+            { key: "lowStockProducts", label: "Low-stock products", hint: "Below reorder level somewhere", icon: TriangleAlert, tone: "warning", warnWhenAboveZero: true },
+            { key: "outOfStockProducts", label: "Out of stock", hint: "Nothing available anywhere", icon: PackageX, tone: "error", warnWhenAboveZero: true }
         ]
     },
     {
         title: "Orders & purchasing",
         items: [
-            { key: "totalOrders", label: "Orders (not cancelled)", icon: ShoppingCart, tone: "text-accent" },
-            { key: "pendingOrders", label: "Orders to fulfil", icon: Clock, tone: "text-accent", warnWhenAboveZero: true },
-            { key: "completedOrders", label: "Delivered orders", icon: CircleCheck, tone: "text-success" },
-            { key: "pendingPurchases", label: "Purchases in progress", icon: ClipboardList, tone: "text-info" }
+            { key: "pendingOrders", label: "Active orders", hint: "Not yet shipped", icon: Clock, tone: "info", warnWhenAboveZero: true },
+            { key: "unconfirmedOrders", label: "Pending orders", hint: "Waiting to be confirmed", icon: ShoppingCart, tone: "warning" },
+            { key: "completedOrders", label: "Delivered orders", icon: CircleCheck, tone: "success" },
+            { key: "pendingPurchases", label: "Purchases in progress", icon: ClipboardList, tone: "info" }
+        ]
+    },
+    {
+        title: "Catalog & partners",
+        items: [
+            { key: "totalProducts", label: "Active products", icon: Package, tone: "primary" },
+            { key: "totalCategories", label: "Categories", icon: FolderTree, tone: "primary" },
+            { key: "totalWarehouses", label: "Warehouses", icon: Warehouse, tone: "primary" },
+            { key: "totalSuppliers", label: "Suppliers", icon: Truck, tone: "primary" },
+            { key: "totalCustomers", label: "Customers", icon: Contact, tone: "primary" },
+            { key: "totalOrders", label: "Orders (not cancelled)", icon: ShoppingCart, tone: "neutral" }
         ]
     }
 ];
@@ -89,46 +99,53 @@ const DashboardPage = () => {
             {!loading && error && <ErrorAlert message={error} onRetry={loadDashboard} />}
 
             {!loading && dashboard && (
-                <div className="space-y-10">
+                <div className="space-y-8">
                     {thisMonth && (
-                        <div className="rounded-box bg-neutral p-6 text-neutral-content">
-                            <p className="text-sm text-neutral-content/70">This month ({thisMonth.month})</p>
-                            <p className="mt-1 text-2xl font-bold">
-                                {formatNumber(thisMonth.orders)} sales orders · {formatCurrency(thisMonth.revenue)} revenue
-                            </p>
+                        <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-primary to-indigo-800 p-6 text-primary-content shadow-raised sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                                <p className="text-sm text-primary-content/75">This month ({thisMonth.month})</p>
+                                <p className="mt-1 text-xl font-bold [overflow-wrap:anywhere] sm:text-2xl">
+                                    {formatNumber(thisMonth.orders)} sales orders · {formatCurrency(thisMonth.revenue)} revenue
+                                </p>
+                            </div>
+                            <Link to="/orders" className="btn shrink-0 border-white/25 bg-white/10 text-primary-content hover:bg-white/20">
+                                View orders <ArrowRight size={16} aria-hidden="true" />
+                            </Link>
                         </div>
                     )}
 
-                    {KPI_GROUPS.map((group) => (
-                        <section key={group.title} aria-labelledby={`kpi-${group.title}`}>
-                            <h2 id={`kpi-${group.title}`} className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
-                                {group.title}
-                            </h2>
-                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                                {group.items.map((item) => {
-                                    const value = dashboard.kpis[item.key];
-                                    const needsAttention = item.warnWhenAboveZero && value > 0;
-                                    return (
-                                        <div
-                                            key={item.key}
-                                            className={`rounded-box border bg-base-100 p-5 ${needsAttention ? "border-warning" : "border-base-300"}`}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-base-content/70">{item.label}</span>
-                                                <item.icon size={20} className={item.tone} aria-hidden="true" />
-                                            </div>
-                                            <p className="mt-3 text-3xl font-bold" data-testid={`kpi-${item.key}`}>
-                                                {formatNumber(value)}
-                                            </p>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </section>
-                    ))}
+                    {KPI_GROUPS.map((group) => {
+                        // Only show numbers the API actually sent
+                        const items = group.items.filter((item) => dashboard.kpis[item.key] !== undefined);
+                        if (items.length === 0) return null;
+                        return (
+                            <section key={group.title} aria-labelledby={`kpi-${group.title}`}>
+                                <h2 id={`kpi-${group.title}`} className="mb-3 text-xs font-semibold tracking-wider text-base-content/55 uppercase">
+                                    {group.title}
+                                </h2>
+                                <div className="grid gap-4 min-[480px]:grid-cols-2 xl:grid-cols-4">
+                                    {items.map((item) => {
+                                        const value = dashboard.kpis[item.key];
+                                        return (
+                                            <StatCard
+                                                key={item.key}
+                                                label={item.label}
+                                                value={(item.format || formatNumber)(value)}
+                                                hint={item.hint}
+                                                icon={item.icon}
+                                                tone={item.tone}
+                                                highlight={item.warnWhenAboveZero && value > 0}
+                                                testId={`kpi-${item.key}`}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        );
+                    })}
 
                     <section aria-labelledby="dashboard-trends">
-                        <h2 id="dashboard-trends" className="mb-4 text-sm font-semibold uppercase tracking-wide text-base-content/60">
+                        <h2 id="dashboard-trends" className="mb-3 text-xs font-semibold tracking-wider text-base-content/55 uppercase">
                             Trends · last 6 months
                         </h2>
                         <DashboardCharts charts={dashboard.charts} />

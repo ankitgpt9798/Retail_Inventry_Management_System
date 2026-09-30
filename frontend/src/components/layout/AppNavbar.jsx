@@ -1,112 +1,74 @@
-import { ChevronDown, Menu } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Menu, X } from "lucide-react";
 import { useSelector } from "react-redux";
-import { NavLink, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import Logo from "../common/Logo";
 import NotificationBell from "./NotificationBell";
 import UserMenu from "./UserMenu";
-import { getHomePath, getLinksForRole, getNavItems } from "../../utils/navigation";
+import { SidebarNav } from "./AppSidebar";
+import { getHomePath } from "../../utils/navigation";
 
-const linkClass = ({ isActive }) =>
-    `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-        isActive ? "bg-primary/10 text-primary" : "text-base-content/75 hover:bg-base-200 hover:text-base-content"
-    }`;
-
-// Several related links under one button, e.g. "Stock ▾" → Inventory, Warehouses, Transfers.
-// It opens while it has focus and closes when you click elsewhere (DaisyUI "dropdown").
-const NavGroup = ({ label, links }) => {
-    const { pathname } = useLocation();
-    const isActive = links.some((link) => pathname === link.to || pathname.startsWith(`${link.to}/`));
-
-    return (
-        // A new key after every page change builds the menu again, closed
-        <div key={pathname} className="dropdown">
-            <div
-                tabIndex={0}
-                role="button"
-                className={`flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive ? "bg-primary/10 text-primary" : "text-base-content/75 hover:bg-base-200 hover:text-base-content"
-                }`}
-            >
-                {label}
-                <ChevronDown size={14} aria-hidden="true" />
-            </div>
-            <ul tabIndex={0} className="dropdown-content menu z-40 mt-1 w-52 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
-                {links.map((link) => (
-                    <li key={link.to}>
-                        <NavLink to={link.to}>
-                            <link.icon size={16} aria-hidden="true" /> {link.label}
-                        </NavLink>
-                    </li>
-                ))}
-            </ul>
-        </div>
-    );
-};
-
-// The menu button for phones: every link in one list. Like NavGroup it opens while it has focus, and a new key
-// after every page change builds it again CLOSED, so it doesn't stay open on top of the page you just chose.
-const PhoneMenu = ({ links }) => {
-    const { pathname } = useLocation();
-
-    return (
-        <div key={pathname} className="dropdown lg:hidden">
-            <div tabIndex={0} role="button" className="btn btn-ghost btn-square btn-sm" aria-label="Open menu">
-                <Menu size={20} />
-            </div>
-            <ul tabIndex={0} className="dropdown-content menu z-40 mt-2 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
-                {links.map((link) => (
-                    <li key={link.to}>
-                        <NavLink to={link.to}>
-                            <link.icon size={16} aria-hidden="true" /> {link.label}
-                        </NavLink>
-                    </li>
-                ))}
-            </ul>
-        </div>
-    );
-};
-
-// The staff app's top navigation. Links depend on the user's role
-// (see utils/navigation.js), so e.g. a supplier never sees "Inventory".
+// The bar across the top of the staff app: menu button (phones/tablets), logo, bell and account menu.
+// On phones and tablets the menu button opens a drawer with the same links as the desktop sidebar.
 const AppNavbar = () => {
     const user = useSelector((state) => state.auth.user);
+    const { pathname } = useLocation();
+    const [drawerOpen, setDrawerOpen] = useState(false);
+
+    // Close the drawer after moving to another page, and with the Escape key
+    useEffect(() => {
+        setDrawerOpen(false);
+    }, [pathname]);
+    useEffect(() => {
+        if (!drawerOpen) return undefined;
+        const closeOnEscape = (event) => {
+            if (event.key === "Escape") setDrawerOpen(false);
+        };
+        document.addEventListener("keydown", closeOnEscape);
+        return () => document.removeEventListener("keydown", closeOnEscape);
+    }, [drawerOpen]);
 
     // Just after logout the user is null for a moment, before the page changes
     if (!user) {
         return null;
     }
 
-    const links = getLinksForRole(user.role);
-    const navItems = getNavItems(user.role);
-
     return (
-        <header className="sticky top-0 z-30 border-b border-base-300 bg-base-100/95 backdrop-blur">
-            <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
-                {/* Phone menu */}
-                {links.length > 0 && <PhoneMenu links={links} />}
+        <>
+            <header className="sticky top-0 z-20 border-b border-base-300 bg-base-100/90 backdrop-blur">
+                <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
+                    <button type="button" className="btn btn-ghost btn-square lg:hidden" aria-label="Open menu" aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}>
+                        <Menu size={20} aria-hidden="true" />
+                    </button>
+                    <div className="lg:hidden">
+                        <Logo to={getHomePath(user.role)} />
+                    </div>
 
-                <Logo to={getHomePath(user.role)} />
-
-                {/* Desktop links */}
-                <nav className="hidden flex-1 items-center gap-1 lg:flex" aria-label="App">
-                    {navItems.map((item) =>
-                        item.type === "group" ? (
-                            <NavGroup key={item.label} label={item.label} links={item.links} />
-                        ) : (
-                            <NavLink key={item.link.to} to={item.link.to} className={linkClass}>
-                                <item.link.icon size={16} aria-hidden="true" />
-                                {item.link.label}
-                            </NavLink>
-                        )
-                    )}
-                </nav>
-
-                <div className="ml-auto flex items-center gap-1">
-                    <NotificationBell />
-                    <UserMenu />
+                    <div className="ml-auto flex items-center gap-1 sm:gap-2">
+                        <NotificationBell />
+                        <UserMenu />
+                    </div>
                 </div>
-            </div>
-        </header>
+            </header>
+
+            {/* Phone / tablet drawer */}
+            {drawerOpen && (
+                <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+                    <div className="absolute inset-0 bg-slate-900/50" onClick={() => setDrawerOpen(false)} aria-hidden="true"></div>
+                    <div className="relative flex h-full w-72 max-w-[85vw] flex-col bg-base-100 shadow-raised">
+                        <div className="flex h-16 shrink-0 items-center justify-between border-b border-base-300 px-4">
+                            <Logo to={getHomePath(user.role)} />
+                            <button type="button" className="btn btn-ghost btn-square btn-sm" aria-label="Close menu" onClick={() => setDrawerOpen(false)}>
+                                <X size={18} aria-hidden="true" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-3 py-5">
+                            <SidebarNav label="App menu" pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 

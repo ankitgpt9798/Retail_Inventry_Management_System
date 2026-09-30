@@ -76,9 +76,9 @@ const WarehouseForm = ({ warehouse, managers, onSaved, onClose }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <ErrorAlert message={serverError} />
-            <div className="grid gap-x-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
                 <TextField label="Name" error={errors.name} {...register("name")} />
                 <TextField label="Code" hint="Short code, e.g. DEL-01" error={errors.code} {...register("code")} />
                 <TextField label="City" error={errors.city} {...register("city")} />
@@ -96,7 +96,7 @@ const WarehouseForm = ({ warehouse, managers, onSaved, onClose }) => {
                 )}
             </div>
             <TextField label="Address (optional)" error={errors.address} {...register("address")} />
-            <div className="modal-action">
+            <div className="form-actions">
                 <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </button>

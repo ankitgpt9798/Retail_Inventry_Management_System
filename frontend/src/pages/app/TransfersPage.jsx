@@ -1,31 +1,35 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Plus } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
+import PageAlerts from "../../components/common/PageAlerts";
 import ListToolbar, { FilterSelect } from "../../components/common/ListToolbar";
+import RecordList from "../../components/common/RecordList";
+import RecordCard, { CardField, CardFields } from "../../components/common/RecordCard";
 import Pagination from "../../components/common/Pagination";
+import StatusBadge from "../../components/common/StatusBadge";
 import Modal from "../../components/common/Modal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ReasonModal from "../../components/common/ReasonModal";
-import ErrorAlert from "../../components/common/ErrorAlert";
-import Loader from "../../components/common/Loader";
 import TransferForm from "../../components/inventory/TransferForm";
 import useDebounce from "../../hooks/useDebounce";
+import useFilters from "../../hooks/useFilters";
 import useList from "../../hooks/useList";
 import useOptions from "../../hooks/useOptions";
 import api, { getErrorMessage } from "../../services/api";
 import { formatDateTime, formatNumber } from "../../utils/format";
+import { TRANSFER_STATUS_STYLES } from "../../utils/statusStyles";
 
 const PAGE_SIZE = 10;
 
-const STATUS_STYLES = {
-    REQUESTED: { label: "Requested", className: "badge-info" },
-    APPROVED: { label: "Approved", className: "badge-primary" },
-    REJECTED: { label: "Rejected", className: "badge-error" },
-    DISPATCHED: { label: "Dispatched", className: "badge-warning" },
-    RECEIVED: { label: "Received", className: "badge-success" },
-    CANCELLED: { label: "Cancelled", className: "badge-neutral" }
-};
+const SORT_OPTIONS = [
+    { value: "newest", label: "Newest first" },
+    { value: "oldest", label: "Oldest first" },
+    { value: "quantity_high", label: "Quantity: high to low" },
+    { value: "quantity_low", label: "Quantity: low to high" }
+];
+
+const INITIAL_FILTERS = { search: "", status: "", warehouse: "", sort: "newest" };
 
 // The next steps a transfer allows, by status (same flow as the backend):
 //   REQUESTED → approve / reject / cancel → APPROVED → dispatch / cancel → DISPATCHED → receive
@@ -38,10 +42,8 @@ const ACTIONS_BY_STATUS = {
 const TransfersPage = () => {
     const currentUser = useSelector((state) => state.auth.user);
 
-    const [search, setSearch] = useState("");
-    const [status, setStatus] = useState("");
-    const [page, setPage] = useState(1);
-    const debouncedSearch = useDebounce(search);
+    const { filters, setFilter, clearFilters, hasFilters, page, setPage } = useFilters(INITIAL_FILTERS);
+    const debouncedSearch = useDebounce(filters.search);
 
     // { type: "new" } or { type: "dispatch" | "receive" | "reject" | "cancel", transfer }
     const [dialog, setDialog] = useState(null);
@@ -51,17 +53,14 @@ const TransfersPage = () => {
     const products = useOptions("/products", "products", { status: "ACTIVE" });
     const warehouses = useOptions("/warehouses", "warehouses", { status: "ACTIVE" });
 
+    const allWarehouses = useOptions("/warehouses", "warehouses");
+
     const { items, pagination, isLoading, error, reload } = useList("/transfers", "transfers", {
+        ...filters,
         search: debouncedSearch,
-        status,
         page,
         limit: PAGE_SIZE
     });
-
-    const withPageReset = (setter) => (value) => {
-        setter(value);
-        setPage(1);
-    };
 
     const closeDialog = () => setDialog(null);
 
@@ -95,11 +94,13 @@ const TransfersPage = () => {
         // The backend refuses self-approval, so don't offer the button
         const isOwnRequest = transfer.requestedBy?._id === currentUser._id;
 
+        if (actions.length === 0) return null; // finished: received, rejected or cancelled
+
         return (
-            <div className="flex flex-wrap justify-end gap-1">
+            <>
                 {actions.includes("approve") &&
                     (isOwnRequest ? (
-                        <span className="self-center text-xs text-base-content/60">Needs another approver</span>
+                        <span className="mr-auto self-center text-xs text-base-content/60">Needs another approver</span>
                     ) : (
                         <button
                             type="button"
@@ -150,9 +151,36 @@ const TransfersPage = () => {
                         Cancel
                     </button>
                 )}
-            </div>
+            </>
         );
     };
+
+    const renderTransfer = (transfer) => (
+        <RecordCard
+            key={transfer._id}
+            label={transfer.transferNumber}
+            title={transfer.product?.name}
+            code={transfer.transferNumber}
+            subtitle={transfer.product?.sku}
+            icon={ArrowLeftRight}
+            status={<StatusBadge status={transfer.status} styles={TRANSFER_STATUS_STYLES} />}
+            footer={renderActions(transfer)}
+        >
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-base-200/70 px-3 py-2 text-sm">
+                <span className="min-w-0 truncate font-medium" title={transfer.fromWarehouse?.name}>{transfer.fromWarehouse?.code}</span>
+                <ArrowRight size={14} className="shrink-0 text-base-content/50" aria-label="to" />
+                <span className="min-w-0 truncate font-medium" title={transfer.toWarehouse?.name}>{transfer.toWarehouse?.code}</span>
+                <span className="ml-auto shrink-0 font-semibold tabular-nums">{formatNumber(transfer.quantity)} units</span>
+            </div>
+            <CardFields>
+                <CardField label="Requested by" value={transfer.requestedBy?.name || "—"} />
+                <CardField label="Requested on" value={formatDateTime(transfer.createdAt)} />
+                {transfer.notes && <CardField label="Notes" value={transfer.notes} wide />}
+                {transfer.rejectionReason && <CardField label="Rejection reason" value={transfer.rejectionReason} wide tone="error" />}
+                {transfer.cancelReason && <CardField label="Cancel reason" value={transfer.cancelReason} wide />}
+            </CardFields>
+        </RecordCard>
+    );
 
     return (
         <>
@@ -162,88 +190,54 @@ const TransfersPage = () => {
                 </button>
             </PageHeader>
 
-            {notice && (
-                <div role="status" className="alert alert-success alert-soft mb-4">
-                    {notice}
-                </div>
-            )}
-            {actionError && (
-                <div className="mb-4">
-                    <ErrorAlert message={actionError} />
-                </div>
-            )}
+            <PageAlerts notice={notice} error={actionError} onDismissNotice={() => setNotice("")} />
 
-            <div className="card border border-base-300 bg-base-100">
-                <ListToolbar search={search} onSearchChange={withPageReset(setSearch)} placeholder="Search transfer number…">
-                    <FilterSelect label="Status" value={status} onChange={withPageReset(setStatus)}>
-                        <option value="">All statuses</option>
-                        {Object.entries(STATUS_STYLES).map(([value, style]) => (
-                            <option key={value} value={value}>
-                                {style.label}
-                            </option>
-                        ))}
-                    </FilterSelect>
-                </ListToolbar>
+            <ListToolbar
+                search={filters.search}
+                onSearchChange={(value) => setFilter("search", value)}
+                placeholder="Search transfer number or product…"
+                hasFilters={hasFilters}
+                onClear={clearFilters}
+            >
+                <FilterSelect label="Status" value={filters.status} onChange={(value) => setFilter("status", value)}>
+                    <option value="">All statuses</option>
+                    {Object.entries(TRANSFER_STATUS_STYLES).map(([value, style]) => (
+                        <option key={value} value={value}>
+                            {style.label}
+                        </option>
+                    ))}
+                </FilterSelect>
+                <FilterSelect label="Warehouse" value={filters.warehouse} onChange={(value) => setFilter("warehouse", value)}>
+                    <option value="">All warehouses</option>
+                    {allWarehouses.map((item) => (
+                        <option key={item._id} value={item._id}>
+                            {item.name}
+                        </option>
+                    ))}
+                </FilterSelect>
+                <FilterSelect label="Sort by" value={filters.sort} onChange={(value) => setFilter("sort", value)}>
+                    {SORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </FilterSelect>
+            </ListToolbar>
 
-                {error ? (
-                    <div className="p-4">
-                        <ErrorAlert message={error} onRetry={reload} />
-                    </div>
-                ) : isLoading ? (
-                    <Loader text="Loading transfers…" />
-                ) : items.length === 0 ? (
-                    <p className="p-10 text-center text-base-content/70">No transfers found.</p>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Transfer</th>
-                                    <th>Product</th>
-                                    <th>Route</th>
-                                    <th className="text-right">Qty</th>
-                                    <th>Status</th>
-                                    <th className="text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map((transfer) => {
-                                    const style = STATUS_STYLES[transfer.status] || { label: transfer.status, className: "badge-neutral" };
-                                    return (
-                                        <tr key={transfer._id}>
-                                            <td>
-                                                <div className="font-mono text-sm font-medium">{transfer.transferNumber}</div>
-                                                <div className="text-xs text-base-content/60">
-                                                    {transfer.requestedBy?.name} · {formatDateTime(transfer.createdAt)}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="font-medium">{transfer.product?.name}</div>
-                                                <div className="font-mono text-xs text-base-content/60">{transfer.product?.sku}</div>
-                                            </td>
-                                            <td className="whitespace-nowrap">
-                                                {transfer.fromWarehouse?.code}
-                                                <ArrowRight size={14} className="mx-1 inline" aria-label="to" />
-                                                {transfer.toWarehouse?.code}
-                                            </td>
-                                            <td className="text-right">{formatNumber(transfer.quantity)}</td>
-                                            <td>
-                                                <span className={`badge badge-sm badge-soft ${style.className}`}>{style.label}</span>
-                                                {transfer.rejectionReason && (
-                                                    <div className="mt-1 text-xs text-base-content/60">{transfer.rejectionReason}</div>
-                                                )}
-                                            </td>
-                                            <td>{renderActions(transfer)}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+            <RecordList
+                items={items}
+                isLoading={isLoading}
+                error={error}
+                onRetry={reload}
+                noun="transfers"
+                isFiltered={hasFilters}
+                onClearFilters={clearFilters}
+                emptyIcon={ArrowLeftRight}
+                emptyMessage="Move stock between warehouses with a transfer request."
+                renderItem={renderTransfer}
+            />
 
-                <Pagination pagination={pagination} onPageChange={setPage} />
-            </div>
+            <Pagination pagination={pagination} onPageChange={setPage} noun="transfers" />
 
             {dialog?.type === "new" && (
                 <Modal title="New transfer" onClose={closeDialog}>

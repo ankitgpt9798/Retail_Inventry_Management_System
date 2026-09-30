@@ -55,7 +55,7 @@ const ReceiveGoodsModal = ({ purchase, onReceived, onClose }) => {
 
     return (
         <Modal title={`Receive goods · ${purchase.poNumber}`} onClose={onClose} wide>
-            <form onSubmit={handleSubmit} noValidate>
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
                 <p className="mb-3 text-sm text-base-content/70">
                     Enter how many units arrived in {purchase.warehouse?.name}. Leave a line empty if nothing arrived for it.
                 </p>
@@ -94,7 +94,7 @@ const ReceiveGoodsModal = ({ purchase, onReceived, onClose }) => {
                         </tbody>
                     </table>
                 </div>
-                <div className="modal-action">
+                <div className="form-actions">
                     <button type="button" className="btn" onClick={onClose} disabled={isWorking}>
                         Cancel
                     </button>

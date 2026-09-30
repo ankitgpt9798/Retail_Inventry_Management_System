@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Boxes, ChartColumn, ClipboardList, FileText, LayoutDashboard, PackageCheck, ScrollText, ShoppingCart, Tags, Truck, Users, Warehouse } from "lucide-react";
+import { ArrowLeftRight, Boxes, ChartColumn, ClipboardList, Contact, FileText, History, LayoutDashboard, PackageCheck, ScrollText, ShoppingCart, Tags, Truck, Users, Warehouse } from "lucide-react";
 import { ROLES } from "./roles";
 
 const { ADMIN, INVENTORY_MANAGER, STAFF, SUPPLIER } = ROLES;
@@ -17,6 +17,8 @@ export const PAGE_ACCESS = {
     // Managers can look at orders (they hold stock); staff and admin create and process them
     orders: [ADMIN, INVENTORY_MANAGER, STAFF],
     orderForm: [ADMIN, STAFF],
+    // Customers are built from orders, so whoever sees orders sees them (read-only)
+    customers: [ADMIN, INVENTORY_MANAGER, STAFF],
     fulfillment: [ADMIN, INVENTORY_MANAGER, STAFF],
     suppliers: [ADMIN, INVENTORY_MANAGER],
     // Suppliers see (only) their own purchase orders; managers run the whole workflow
@@ -47,19 +49,21 @@ export const EDIT_ACCESS = {
 
 export const canEdit = (page, role) => EDIT_ACCESS[page]?.includes(role) ?? false;
 
-// Links in the staff app's top navigation
+// Links in the staff app's sidebar, in order. Links with the same `group` are shown under one heading.
 export const APP_LINKS = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: PAGE_ACCESS.dashboard },
     { to: "/products", label: "Products", icon: Boxes, roles: PAGE_ACCESS.products, group: "Catalog" },
     { to: "/categories", label: "Categories", icon: Tags, roles: PAGE_ACCESS.categories, group: "Catalog" },
     { to: "/inventory", label: "Inventory", icon: ClipboardList, roles: PAGE_ACCESS.inventory, group: "Stock" },
+    { to: "/inventory/history", label: "Stock history", icon: History, roles: PAGE_ACCESS.inventory, group: "Stock" },
     { to: "/warehouses", label: "Warehouses", icon: Warehouse, roles: PAGE_ACCESS.warehouses, group: "Stock" },
     { to: "/transfers", label: "Transfers", icon: ArrowLeftRight, roles: PAGE_ACCESS.transfers, group: "Stock" },
     { to: "/orders", label: "Orders", icon: ShoppingCart, roles: PAGE_ACCESS.orders, group: "Sales" },
     { to: "/fulfillment", label: "Fulfillment", icon: PackageCheck, roles: PAGE_ACCESS.fulfillment, group: "Sales" },
+    { to: "/customers", label: "Customers", icon: Contact, roles: PAGE_ACCESS.customers, group: "Sales" },
     { to: "/suppliers", label: "Suppliers", icon: Truck, roles: PAGE_ACCESS.suppliers, group: "Purchasing" },
     { to: "/purchases", label: "Purchases", icon: FileText, roles: PAGE_ACCESS.purchases, group: "Purchasing" },
-    { to: "/reports", label: "Reports", icon: ChartColumn, roles: PAGE_ACCESS.reports },
+    { to: "/reports", label: "Reports", icon: ChartColumn, roles: PAGE_ACCESS.reports, group: "Insights" },
     { to: "/users", label: "Users", icon: Users, roles: PAGE_ACCESS.users, group: "Admin" },
     { to: "/audit-logs", label: "Audit log", icon: ScrollText, roles: PAGE_ACCESS.auditLogs, group: "Admin" }
 ];
@@ -68,24 +72,22 @@ export const getLinksForRole = (role) => {
     return APP_LINKS.filter((link) => link.roles.includes(role));
 };
 
-// The top bar: single links stay as they are; links that share a `group` become one drop-down.
-// A group with only ONE visible link (e.g. a supplier's "Purchasing") is shown as a plain link.
-// Returns [{ type: "link", link } | { type: "group", label, links }]
-export const getNavItems = (role) => {
-    const items = [];
+// The sidebar: the role's links split into sections, each with its heading (or none, for Dashboard).
+// A section only appears when the role can open at least one of its pages.
+// Returns [{ label: "Stock" | null, links: [...] }]
+export const getNavSections = (role) => {
+    const sections = [];
     for (const link of getLinksForRole(role)) {
-        const existing = link.group && items.find((item) => item.type === "group" && item.label === link.group);
-        if (existing) {
-            existing.links.push(link);
-        }
-        else if (link.group) {
-            items.push({ type: "group", label: link.group, links: [link] });
+        const label = link.group || null;
+        const section = sections.find((item) => item.label === label);
+        if (section) {
+            section.links.push(link);
         }
         else {
-            items.push({ type: "link", link });
+            sections.push({ label, links: [link] });
         }
     }
-    return items.map((item) => (item.type === "group" && item.links.length === 1 ? { type: "link", link: item.links[0] } : item));
+    return sections;
 };
 
 // Where a user lands after logging in

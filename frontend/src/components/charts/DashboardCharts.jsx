@@ -59,7 +59,7 @@ const DashboardCharts = ({ charts }) => {
     }));
 
     return (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 *:min-w-0 lg:grid-cols-2">
             <ChartCard
                 title="Revenue by month (₹)"
                 description="Orders that were confirmed or later, not cancelled."

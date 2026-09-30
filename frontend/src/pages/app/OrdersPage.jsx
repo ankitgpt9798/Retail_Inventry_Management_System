@@ -1,136 +1,158 @@
-import { useState } from "react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Eye, Pencil, Plus, ShoppingCart } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
-import ListToolbar, { FilterSelect } from "../../components/common/ListToolbar";
+import ListToolbar, { DateFilter, FilterSelect } from "../../components/common/ListToolbar";
+import RecordList from "../../components/common/RecordList";
+import RecordCard, { CardField, CardFields } from "../../components/common/RecordCard";
 import Pagination from "../../components/common/Pagination";
-import ErrorAlert from "../../components/common/ErrorAlert";
-import Loader from "../../components/common/Loader";
-import OrderStatusBadge from "../../components/orders/OrderStatusBadge";
+import StatusBadge from "../../components/common/StatusBadge";
 import useDebounce from "../../hooks/useDebounce";
+import useFilters from "../../hooks/useFilters";
 import useList from "../../hooks/useList";
 import useOptions from "../../hooks/useOptions";
 import { canEdit } from "../../utils/navigation";
 import { formatCurrency, formatDateTime } from "../../utils/format";
 import { ORDER_STATUS_STYLES } from "../../utils/orderStatus";
+import { PAYMENT_STATUS_STYLES } from "../../utils/statusStyles";
 
 const PAGE_SIZE = 10;
 
+const SORT_OPTIONS = [
+    { value: "newest", label: "Newest first" },
+    { value: "oldest", label: "Oldest first" },
+    { value: "amount_high", label: "Amount: high to low" },
+    { value: "amount_low", label: "Amount: low to high" }
+];
+
+const INITIAL_FILTERS = { search: "", status: "", paymentStatus: "", warehouse: "", from: "", to: "", sort: "newest" };
+
+// Customer (sales) orders
 const OrdersPage = () => {
     const role = useSelector((state) => state.auth.user.role);
     const mayEdit = canEdit("orders", role);
 
-    const [search, setSearch] = useState("");
-    const [status, setStatus] = useState("");
-    const [warehouse, setWarehouse] = useState("");
-    const [from, setFrom] = useState("");
-    const [to, setTo] = useState("");
-    const [page, setPage] = useState(1);
-    const debouncedSearch = useDebounce(search);
+    const { filters, setFilter, clearFilters, hasFilters, page, setPage } = useFilters(INITIAL_FILTERS);
+    const debouncedSearch = useDebounce(filters.search);
 
     const warehouses = useOptions("/warehouses", "warehouses");
 
     // "to" is sent as the END of its day, otherwise orders placed that day would be left out
     const { items, pagination, isLoading, error, reload } = useList("/orders", "orders", {
+        ...filters,
         search: debouncedSearch,
-        status,
-        warehouse,
-        from: from ? `${from}T00:00:00` : "",
-        to: to ? `${to}T23:59:59` : "",
+        from: filters.from ? `${filters.from}T00:00:00` : "",
+        to: filters.to ? `${filters.to}T23:59:59` : "",
         page,
         limit: PAGE_SIZE
     });
 
-    const withPageReset = (setter) => (value) => {
-        setter(value);
-        setPage(1);
-    };
+    const newOrderButton = mayEdit && (
+        <Link to="/orders/new" className="btn btn-primary">
+            <Plus size={16} aria-hidden="true" /> New order
+        </Link>
+    );
+
+    const renderOrder = (order) => (
+        <RecordCard
+            key={order._id}
+            label={order.orderNumber}
+            title={order.customer?.name}
+            titleTo={`/orders/${order._id}`}
+            code={order.orderNumber}
+            subtitle={formatDateTime(order.createdAt)}
+            icon={ShoppingCart}
+            status={
+                <>
+                    <StatusBadge status={order.status} styles={ORDER_STATUS_STYLES} />
+                    <StatusBadge status={order.paymentStatus} styles={PAYMENT_STATUS_STYLES} />
+                </>
+            }
+            footer={
+                <>
+                    {mayEdit && order.status === "PENDING" && (
+                        <Link to={`/orders/${order._id}/edit`} className="btn btn-ghost btn-sm" aria-label={`Edit ${order.orderNumber}`}>
+                            <Pencil size={14} aria-hidden="true" /> Edit
+                        </Link>
+                    )}
+                    <Link to={`/orders/${order._id}`} className="btn btn-sm" aria-label={`View ${order.orderNumber}`}>
+                        <Eye size={14} aria-hidden="true" /> View
+                    </Link>
+                </>
+            }
+        >
+            <CardFields>
+                <CardField label="Total" value={formatCurrency(order.totalAmount)} strong />
+                <CardField label="Warehouse" value={order.warehouse?.code || "—"} />
+                <CardField label="Phone" value={order.customer?.phone || "—"} />
+                <CardField label="Taken by" value={order.createdBy?.name || "—"} />
+                {order.trackingNumber && <CardField label="Tracking" value={`${order.carrier || ""} ${order.trackingNumber}`.trim()} wide mono />}
+            </CardFields>
+        </RecordCard>
+    );
 
     return (
         <>
-            <PageHeader title="Orders" description="Customer orders, from pending to delivered.">
-                {mayEdit && (
-                    <Link to="/orders/new" className="btn btn-primary">
-                        <Plus size={16} aria-hidden="true" /> New order
-                    </Link>
-                )}
+            <PageHeader title="Orders" description="Customer (sales) orders, from pending to delivered.">
+                {newOrderButton}
             </PageHeader>
 
-            <div className="card border border-base-300 bg-base-100">
-                <ListToolbar search={search} onSearchChange={withPageReset(setSearch)} placeholder="Order number, customer or phone…">
-                    <FilterSelect label="Status" value={status} onChange={withPageReset(setStatus)}>
-                        <option value="">All statuses</option>
-                        {Object.entries(ORDER_STATUS_STYLES).map(([value, style]) => (
-                            <option key={value} value={value}>
-                                {style.label}
-                            </option>
-                        ))}
-                    </FilterSelect>
-                    <FilterSelect label="Warehouse" value={warehouse} onChange={withPageReset(setWarehouse)}>
-                        <option value="">All warehouses</option>
-                        {warehouses.map((item) => (
-                            <option key={item._id} value={item._id}>
-                                {item.name}
-                            </option>
-                        ))}
-                    </FilterSelect>
-                    <label className="flex items-center gap-2 text-sm">
-                        From
-                        <input type="date" className="input" value={from} max={to || undefined} onChange={(event) => withPageReset(setFrom)(event.target.value)} />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                        To
-                        <input type="date" className="input" value={to} min={from || undefined} onChange={(event) => withPageReset(setTo)(event.target.value)} />
-                    </label>
-                </ListToolbar>
+            <ListToolbar
+                search={filters.search}
+                onSearchChange={(value) => setFilter("search", value)}
+                placeholder="Order number, customer, email or phone…"
+                hasFilters={hasFilters}
+                onClear={clearFilters}
+            >
+                <FilterSelect label="Status" value={filters.status} onChange={(value) => setFilter("status", value)}>
+                    <option value="">All statuses</option>
+                    {Object.entries(ORDER_STATUS_STYLES).map(([value, style]) => (
+                        <option key={value} value={value}>
+                            {style.label}
+                        </option>
+                    ))}
+                </FilterSelect>
+                <FilterSelect label="Payment" value={filters.paymentStatus} onChange={(value) => setFilter("paymentStatus", value)}>
+                    <option value="">All payments</option>
+                    {Object.entries(PAYMENT_STATUS_STYLES).map(([value, style]) => (
+                        <option key={value} value={value}>
+                            {style.label}
+                        </option>
+                    ))}
+                </FilterSelect>
+                <FilterSelect label="Warehouse" value={filters.warehouse} onChange={(value) => setFilter("warehouse", value)}>
+                    <option value="">All warehouses</option>
+                    {warehouses.map((item) => (
+                        <option key={item._id} value={item._id}>
+                            {item.name}
+                        </option>
+                    ))}
+                </FilterSelect>
+                <FilterSelect label="Sort by" value={filters.sort} onChange={(value) => setFilter("sort", value)}>
+                    {SORT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </FilterSelect>
+                <DateFilter label="From" value={filters.from} max={filters.to} onChange={(value) => setFilter("from", value)} />
+                <DateFilter label="To" value={filters.to} min={filters.from} onChange={(value) => setFilter("to", value)} />
+            </ListToolbar>
 
-                {error ? (
-                    <div className="p-4">
-                        <ErrorAlert message={error} onRetry={reload} />
-                    </div>
-                ) : isLoading ? (
-                    <Loader text="Loading orders…" />
-                ) : items.length === 0 ? (
-                    <p className="p-10 text-center text-base-content/70">No orders found.</p>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Order</th>
-                                    <th>Customer</th>
-                                    <th>Warehouse</th>
-                                    <th>Status</th>
-                                    <th className="text-right">Total</th>
-                                    <th className="text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map((order) => (
-                                    <tr key={order._id}>
-                                        <td>
-                                            <div className="font-mono text-sm font-medium">{order.orderNumber}</div>
-                                            <div className="text-xs text-base-content/60">{formatDateTime(order.createdAt)}</div>
-                                        </td>
-                                        <td>{order.customer?.name}</td>
-                                        <td>{order.warehouse?.code}</td>
-                                        <td><OrderStatusBadge status={order.status} /></td>
-                                        <td className="text-right">{formatCurrency(order.totalAmount)}</td>
-                                        <td className="text-right">
-                                            <Link to={`/orders/${order._id}`} className="btn btn-ghost btn-sm" aria-label={`View ${order.orderNumber}`}>
-                                                View
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+            <RecordList
+                items={items}
+                isLoading={isLoading}
+                error={error}
+                onRetry={reload}
+                noun="orders"
+                isFiltered={hasFilters}
+                onClearFilters={clearFilters}
+                emptyIcon={ShoppingCart}
+                emptyMessage="Orders you take for customers will appear here."
+                renderItem={renderOrder}
+            />
 
-                <Pagination pagination={pagination} onPageChange={setPage} />
-            </div>
+            <Pagination pagination={pagination} onPageChange={setPage} noun="orders" />
         </>
     );
 };

@@ -42,7 +42,7 @@ describe("StockHistoryPage", () => {
         expect(screen.getByText("−5")).toHaveClass("text-error");
         expect(screen.getByText("75 → 100")).toBeInTheDocument();
         expect(screen.getAllByText("Ravi Kumar")).toHaveLength(2);
-        expect(api.get).toHaveBeenCalledWith("/inventory/transactions", { params: { page: 1, limit: 15 } });
+        expect(api.get).toHaveBeenCalledWith("/inventory/transactions", { params: { sort: "newest", page: 1, limit: 15 } });
     });
 
     test("type, warehouse and date filters are sent to the API (the end date covers the whole day)", async () => {
@@ -57,7 +57,7 @@ describe("StockHistoryPage", () => {
         await vi.waitFor(() =>
             expect(api.get).toHaveBeenLastCalledWith("/inventory/transactions", {
                 params: {
-                    type: "STOCK_OUT", warehouse: "w1", from: "2026-09-01T00:00:00", to: "2026-09-28T23:59:59", page: 1, limit: 15
+                    type: "STOCK_OUT", warehouse: "w1", from: "2026-09-01T00:00:00", to: "2026-09-28T23:59:59", sort: "newest", page: 1, limit: 15
                 }
             })
         );
@@ -73,6 +73,19 @@ describe("StockHistoryPage", () => {
         );
         renderPage();
 
-        expect(await screen.findByText("No stock movements found.")).toBeInTheDocument();
+        expect(await screen.findByText("No stock movements yet")).toBeInTheDocument();
+    });
+
+    test("the Adjustments button shows only stock adjustments", async () => {
+        renderPage();
+        await screen.findByText("New delivery");
+
+        await userEvent.click(screen.getByRole("button", { name: "Adjustments" }));
+
+        expect(screen.getByRole("button", { name: "Adjustments" })).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByRole("combobox", { name: "Type" })).toHaveValue("ADJUSTMENT");
+        await vi.waitFor(() =>
+            expect(api.get).toHaveBeenLastCalledWith("/inventory/transactions", { params: { type: "ADJUSTMENT", sort: "newest", page: 1, limit: 15 } })
+        );
     });
 });

@@ -8,16 +8,16 @@ const ReportFilters = ({ filters, values, onChange, options }) => {
     if (filters.length === 0) return null;
 
     return (
-        <div className="flex flex-wrap items-center gap-3 border-b border-base-300 p-4">
+        <div className="flex flex-wrap items-center gap-3 border-b border-base-300 p-4 sm:px-6">
             {filters.includes("range") && (
                 <>
                     <label className="flex items-center gap-2 text-sm">
                         From
-                        <input type="date" className="input" value={values.from} max={values.to || undefined} onChange={(event) => onChange("from", event.target.value)} />
+                        <input type="date" className="input w-auto" value={values.from} max={values.to || undefined} onChange={(event) => onChange("from", event.target.value)} />
                     </label>
                     <label className="flex items-center gap-2 text-sm">
                         To
-                        <input type="date" className="input" value={values.to} min={values.from || undefined} onChange={(event) => onChange("to", event.target.value)} />
+                        <input type="date" className="input w-auto" value={values.to} min={values.from || undefined} onChange={(event) => onChange("to", event.target.value)} />
                     </label>
                 </>
             )}

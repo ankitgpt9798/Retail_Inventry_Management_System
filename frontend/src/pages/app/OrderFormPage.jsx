@@ -12,6 +12,7 @@ import Loader from "../../components/common/Loader";
 import useOptions from "../../hooks/useOptions";
 import api, { getErrorMessage } from "../../services/api";
 import { formatCurrency } from "../../utils/format";
+import Alert from "../../components/common/Alert";
 
 // Same rules as the backend (validators/orderValidators.js) for quick feedback
 const orderSchema = z.object({
@@ -93,9 +94,9 @@ const OrderFormPage = () => {
         return (
             <>
                 <PageHeader title={`Edit ${loaded.order.orderNumber}`} />
-                <div role="alert" className="alert alert-warning alert-soft">
+                <Alert tone="warning" role="alert">
                     Only pending orders can be edited. This order is {loaded.order.status.toLowerCase()}.
-                </div>
+                </Alert>
                 <Link to={`/orders/${id}`} className="btn mt-4">
                     Back to the order
                 </Link>
@@ -185,8 +186,8 @@ const OrderForm = ({ defaults, isEdit, products, warehouses, serverError, onSave
         <form noValidate className="space-y-6">
             <ErrorAlert message={serverError} />
 
-            <div className="grid gap-6 lg:grid-cols-2">
-                <div className="card border border-base-300 bg-base-100">
+            <div className="grid gap-6 *:min-w-0 lg:grid-cols-2">
+                <div className="card">
                     <div className="card-body">
                         <h2 className="card-title">Customer</h2>
                         <TextField label="Name" error={errors.customerName} {...register("customerName")} />
@@ -196,7 +197,7 @@ const OrderForm = ({ defaults, isEdit, products, warehouses, serverError, onSave
                     </div>
                 </div>
 
-                <div className="card border border-base-300 bg-base-100">
+                <div className="card">
                     <div className="card-body">
                         <h2 className="card-title">Fulfilled from</h2>
                         <SelectField label="Warehouse" error={errors.warehouse} {...register("warehouse")}>
@@ -212,7 +213,7 @@ const OrderForm = ({ defaults, isEdit, products, warehouses, serverError, onSave
                 </div>
             </div>
 
-            <div className="card border border-base-300 bg-base-100">
+            <div className="card">
                 <div className="card-body">
                     <h2 className="card-title">Items</h2>
                     {itemsError && <p className="text-sm text-error" role="alert">{itemsError}</p>}

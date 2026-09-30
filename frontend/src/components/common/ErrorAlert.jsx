@@ -1,19 +1,24 @@
-import { CircleAlert } from "lucide-react";
+import { RotateCw } from "lucide-react";
+import Alert from "./Alert";
 
 // Shows an error message; if onRetry is given, also a "Try again" button
-const ErrorAlert = ({ message, onRetry }) => {
+const ErrorAlert = ({ message, onRetry, className }) => {
     if (!message) return null;
 
     return (
-        <div role="alert" className="alert alert-error alert-soft">
-            <CircleAlert size={20} aria-hidden="true" />
-            <span>{message}</span>
-            {onRetry && (
-                <button type="button" className="btn btn-sm" onClick={onRetry}>
-                    Try again
-                </button>
-            )}
-        </div>
+        <Alert
+            tone="error"
+            className={className}
+            action={
+                onRetry && (
+                    <button type="button" className="btn btn-sm" onClick={onRetry}>
+                        <RotateCw size={14} aria-hidden="true" /> Try again
+                    </button>
+                )
+            }
+        >
+            {message}
+        </Alert>
     );
 };
 

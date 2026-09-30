@@ -39,13 +39,13 @@ const ReorderLevelForm = ({ inventory, onSaved, onClose }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
             <p className="mb-2 text-sm text-base-content/70">
                 {inventory.product.name} in {inventory.warehouse.name}. You get a low-stock alert when available stock falls below this number.
             </p>
             <ErrorAlert message={serverError} />
             <TextField label="Reorder level" type="number" error={errors.reorderLevel} {...register("reorderLevel", { valueAsNumber: true })} />
-            <div className="modal-action">
+            <div className="form-actions">
                 <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                     Cancel
                 </button>

@@ -1,17 +1,17 @@
-// Purchase-order statuses in one place. Same flow as the backend:
+// Purchase-order statuses in one place (label + colour "tone"). Same flow as the backend:
 //   DRAFT →(submit) PENDING →(approve) APPROVED →(order) ORDERED → PARTIALLY_RECEIVED → RECEIVED
 //   PENDING can also be REJECTED; any open order can be CANCELLED.
 // The supplier (portal) confirms an ORDERED order and can update its delivery details.
 
 export const PURCHASE_STATUS_STYLES = {
-    DRAFT: { label: "Draft", className: "badge-neutral" },
-    PENDING: { label: "Awaiting approval", className: "badge-info" },
-    APPROVED: { label: "Approved", className: "badge-primary" },
-    REJECTED: { label: "Rejected", className: "badge-error" },
-    ORDERED: { label: "Ordered", className: "badge-secondary" },
-    PARTIALLY_RECEIVED: { label: "Partly received", className: "badge-warning" },
-    RECEIVED: { label: "Received", className: "badge-success" },
-    CANCELLED: { label: "Cancelled", className: "badge-neutral" }
+    DRAFT: { label: "Draft", tone: "neutral" },
+    PENDING: { label: "Awaiting approval", tone: "info" },
+    APPROVED: { label: "Approved", tone: "primary" },
+    REJECTED: { label: "Rejected", tone: "error" },
+    ORDERED: { label: "Ordered", tone: "violet" },
+    PARTIALLY_RECEIVED: { label: "Partly received", tone: "warning" },
+    RECEIVED: { label: "Received", tone: "success" },
+    CANCELLED: { label: "Cancelled", tone: "neutral" }
 };
 
 // Statuses in which goods can still arrive

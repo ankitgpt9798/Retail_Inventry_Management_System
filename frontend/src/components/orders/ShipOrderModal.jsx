@@ -39,12 +39,12 @@ const ShipOrderModal = ({ order, onShipped, onClose }) => {
 
     return (
         <Modal title={`Ship ${order.orderNumber}`} onClose={onClose}>
-            <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
                 <p className="mb-2 text-sm text-base-content/70">The reserved stock will be taken out of the warehouse.</p>
                 <ErrorAlert message={serverError} />
                 <TextField label="Carrier" hint="e.g. Blue Dart" error={errors.carrier} {...register("carrier")} />
                 <TextField label="Tracking number" error={errors.trackingNumber} {...register("trackingNumber")} />
-                <div className="modal-action">
+                <div className="form-actions">
                     <button type="button" className="btn" onClick={onClose} disabled={isSubmitting}>
                         Cancel
                     </button>

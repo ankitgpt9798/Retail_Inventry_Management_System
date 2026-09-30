@@ -41,15 +41,29 @@ beforeEach(() => {
 const renderPage = (role) => renderWithProviders(<InventoryPage />, { preloadedState: authState(role), route: "/inventory", path: "/inventory" });
 
 describe("InventoryPage", () => {
-    test("lists stock with on hand, reserved and available, and flags low stock", async () => {
+    test("shows each record as a card with its stock numbers and stock status", async () => {
         renderPage("ADMIN");
 
         expect(await screen.findByText("Laptop Pro")).toBeInTheDocument();
-        expect(api.get).toHaveBeenCalledWith("/inventory", { params: { page: 1, limit: 10 } });
-        // Only the keyboard (available 8 < reorder level 10) is low
-        expect(screen.getAllByText("Low stock")).toHaveLength(1);
-        const keyboardRow = screen.getByText("Keyboard").closest("tr");
-        expect(within(keyboardRow).getByText("Low stock")).toBeInTheDocument();
+        expect(api.get).toHaveBeenCalledWith("/inventory", { params: { sort: "updated", page: 1, limit: 10 } });
+        // The keyboard: 20 on hand, 12 reserved → 8 available, below its reorder level of 10 → low stock
+        const keyboard = screen.getByRole("article", { name: "Keyboard · DEL-01" });
+        expect(within(keyboard).getByText("Low stock")).toBeInTheDocument();
+        expect(within(keyboard).getByText("Available").nextSibling).toHaveTextContent("8");
+        expect(within(keyboard).getByText("Reserved").nextSibling).toHaveTextContent("12");
+        // The laptop: 100 on hand is more than 5 × its reorder level of 10 → overstocked
+        expect(within(screen.getByRole("article", { name: "Laptop Pro · DEL-01" })).getByText("Overstocked")).toBeInTheDocument();
+    });
+
+    test("stock value on the card is current stock × cost price", async () => {
+        api.get.mockImplementation((url) => {
+            if (url !== "/inventory") return Promise.resolve({ data: { data: { products, warehouses } } });
+            return Promise.resolve(inventoryResponse([{ ...laptopInDelhi, product: { ...laptopInDelhi.product, costPrice: 105679 } }]));
+        });
+        renderPage("ADMIN");
+
+        const laptop = await screen.findByRole("article", { name: "Laptop Pro · DEL-01" });
+        expect(within(laptop).getByText("Stock value (at cost)").nextSibling).toHaveTextContent("₹1,05,67,900.00");
     });
 
     test("staff can only view: no stock in/out or reorder buttons", async () => {
@@ -67,14 +81,36 @@ describe("InventoryPage", () => {
         await screen.findByText("Laptop Pro");
 
         await userEvent.selectOptions(screen.getByRole("combobox", { name: "Warehouse" }), "w1");
-        await userEvent.click(screen.getByLabelText("Low stock only"));
+        await userEvent.selectOptions(screen.getByRole("combobox", { name: "Stock status" }), "BELOW_REORDER");
         await userEvent.type(screen.getByRole("searchbox", { name: "Search" }), "lap");
 
         await vi.waitFor(() =>
             expect(api.get).toHaveBeenLastCalledWith("/inventory", {
-                params: { search: "lap", warehouse: "w1", lowStock: "true", page: 1, limit: 10 }
+                params: { search: "lap", warehouse: "w1", lowStock: "true", sort: "updated", page: 1, limit: 10 }
             })
         );
+    });
+
+    test("a single stock status and a sort order are sent as stockStatus and sort", async () => {
+        renderPage("ADMIN");
+        await screen.findByText("Laptop Pro");
+
+        await userEvent.selectOptions(screen.getByRole("combobox", { name: "Stock status" }), "OUT_OF_STOCK");
+        await userEvent.selectOptions(screen.getByRole("combobox", { name: "Sort by" }), "stock_high");
+
+        await vi.waitFor(() =>
+            expect(api.get).toHaveBeenLastCalledWith("/inventory", {
+                params: { stockStatus: "OUT_OF_STOCK", sort: "stock_high", page: 1, limit: 10 }
+            })
+        );
+    });
+
+    test("opening /inventory?search=… starts with that search (links from product cards)", async () => {
+        renderWithProviders(<InventoryPage />, { preloadedState: authState("ADMIN"), route: "/inventory?search=LAP-001", path: "/inventory" });
+
+        await screen.findByText("Laptop Pro");
+        expect(screen.getByRole("searchbox", { name: "Search" })).toHaveValue("LAP-001");
+        expect(api.get).toHaveBeenCalledWith("/inventory", { params: { search: "LAP-001", sort: "updated", page: 1, limit: 10 } });
     });
 
     test("admin adds stock from the header button", async () => {
@@ -151,13 +187,18 @@ describe("InventoryPage", () => {
         expect(await screen.findByText("Reorder level updated.")).toBeInTheDocument();
     });
 
-    test("shows a friendly message when nothing is low on stock", async () => {
+    test("nothing matches the filters → 'No stock records found' with a Clear filters button", async () => {
         api.get.mockImplementation((url) =>
             Promise.resolve(url === "/inventory" ? inventoryResponse([]) : { data: { data: { products, warehouses } } })
         );
         renderPage("ADMIN");
 
-        await userEvent.click(await screen.findByLabelText("Low stock only"));
-        expect(await screen.findByText("No products are low on stock.")).toBeInTheDocument();
+        await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Stock status" }), "BELOW_REORDER");
+        expect(await screen.findByText("No stock records found")).toBeInTheDocument();
+        expect(screen.getByText("Try changing your search or filters.")).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+        expect(screen.getByRole("combobox", { name: "Stock status" })).toHaveValue("");
+        expect(await screen.findByText("No stock yet")).toBeInTheDocument();
     });
 });
