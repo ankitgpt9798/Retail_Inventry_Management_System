@@ -1,6 +1,7 @@
 const { z } = require("zod");
 const { RECORD_STATUS } = require("../utils/constants");
-const { paginationSchema, searchSchema } = require("./commonValidators");
+const { paginationSchema, searchSchema, sortSchema } = require("./commonValidators");
+const { SUPPLIER_SORT, defaultSort } = require("../utils/sortOptions");
 
 const statusSchema = z.enum(Object.values(RECORD_STATUS), { error: "Status must be ACTIVE or INACTIVE" });
 
@@ -42,12 +43,13 @@ const updateSupplierSchema = z
         message: "Provide at least one field to update"
     });
 
-// GET /api/suppliers?search=&city=&status=&page=&limit=
+// GET /api/suppliers?search=&city=&status=&sort=&page=&limit=
 const listSuppliersQuerySchema = z.object({
     ...paginationSchema,
     search: searchSchema,
     city: z.string().trim().max(100).optional(),
-    status: statusSchema.optional()
+    status: statusSchema.optional(),
+    sort: sortSchema(SUPPLIER_SORT, defaultSort(SUPPLIER_SORT))
 });
 
 module.exports = { createSupplierSchema, updateSupplierSchema, listSuppliersQuerySchema };

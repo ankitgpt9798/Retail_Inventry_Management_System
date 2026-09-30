@@ -6,6 +6,7 @@ const Order = require("../models/Order");
 const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
+const { WAREHOUSE_SORT } = require("../utils/sortOptions");
 const {
     ROLES,
     RECORD_STATUS,
@@ -155,7 +156,7 @@ const getAuditFields = (warehouse) => ({
 // ---------- Service functions ----------
 
 // GET /api/warehouses
-const getWarehouses = async ({ search, city, status, manager, page, limit }) => {
+const getWarehouses = async ({ search, city, status, manager, sort = "name", page, limit }) => {
     const filter = {};
 
     if (search) {
@@ -175,7 +176,7 @@ const getWarehouses = async ({ search, city, status, manager, page, limit }) => 
     const [warehouses, total] = await Promise.all([
         Warehouse.find(filter)
             .populate("manager", MANAGER_FIELDS)
-            .sort({ name: 1 })
+            .sort(WAREHOUSE_SORT[sort])
             .skip((page - 1) * limit)
             .limit(limit),
         Warehouse.countDocuments(filter)

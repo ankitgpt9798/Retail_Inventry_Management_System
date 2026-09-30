@@ -5,6 +5,7 @@ const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
 const moveStatus = require("../utils/moveStatus");
 const roundMoney = require("../utils/roundMoney");
+const { ORDER_SORT } = require("../utils/sortOptions");
 const {
     ROLES,
     ORDER_STATUS,
@@ -155,15 +156,17 @@ const orderLink = (order) => `/orders/${order._id}`;
 // ---------- Reads ----------
 
 // GET /api/orders
-const getOrders = async ({ status, warehouse, search, from, to, page, limit }) => {
+const getOrders = async ({ status, paymentStatus, warehouse, search, from, to, sort = "newest", page, limit }) => {
     const filter = {};
     if (status) filter.status = status;
+    if (paymentStatus) filter.paymentStatus = paymentStatus;
     if (warehouse) filter.warehouse = warehouse;
     if (search) {
         const searchPattern = new RegExp(escapeRegex(search), "i");
         filter.$or = [
             { orderNumber: searchPattern },
             { "customer.name": searchPattern },
+            { "customer.email": searchPattern },
             { "customer.phone": searchPattern }
         ];
     }
@@ -178,7 +181,7 @@ const getOrders = async ({ status, warehouse, search, from, to, page, limit }) =
             .populate("warehouse", "name code")
             .populate("createdBy", "name")
             .select("-statusHistory")
-            .sort({ createdAt: -1 })
+            .sort(ORDER_SORT[sort])
             .skip((page - 1) * limit)
             .limit(limit),
         Order.countDocuments(filter)
@@ -518,6 +521,29 @@ const updateOrderStatus = async (orderId, { status, note, carrier, trackingNumbe
     return getOrderWithItems(updated);
 };
 
+// PUT /api/orders/:id/payment — record that the customer paid, paid part, or was refunded.
+// Payment does not move stock, so it can change at any order status.
+const updatePaymentStatus = async (orderId, { paymentStatus, note }, currentUser) => {
+    const before = await findOrderOrFail(orderId);
+    if (before.paymentStatus === paymentStatus) {
+        throw new AppError(409, "PAYMENT_STATUS_UNCHANGED", `Order ${before.orderNumber} is already ${paymentStatus}`);
+    }
+
+    const order = await Order.findByIdAndUpdate(before._id, { $set: { paymentStatus } }, { returnDocument: "after" });
+
+    await logAction({
+        userId: currentUser._id,
+        action: "ORDER_PAYMENT_UPDATED",
+        entityType: "Order",
+        entityId: order._id,
+        oldValue: { paymentStatus: before.paymentStatus },
+        newValue: { paymentStatus },
+        metadata: { orderNumber: order.orderNumber, note }
+    });
+
+    return getOrderWithItems(order);
+};
+
 module.exports = {
     calculateLine,
     calculateOrderTotals,
@@ -528,5 +554,6 @@ module.exports = {
     confirmOrder,
     cancelOrder,
     getFulfillmentQueue,
-    updateOrderStatus
+    updateOrderStatus,
+    updatePaymentStatus
 };

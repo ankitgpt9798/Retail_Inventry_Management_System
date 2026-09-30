@@ -68,6 +68,12 @@ const updateOrderStatus = async (req, res) => {
     sendOrder(res, 200, `Order ${result.order.orderNumber} is now ${result.order.status}`, result);
 };
 
+// PUT /api/orders/:id/payment
+const updatePaymentStatus = async (req, res) => {
+    const result = await orderService.updatePaymentStatus(req.params.id, req.body, req.user);
+    sendOrder(res, 200, `Order ${result.order.orderNumber} payment is now ${result.order.paymentStatus}`, result);
+};
+
 module.exports = {
     getOrders,
     getOrderById,
@@ -76,5 +82,6 @@ module.exports = {
     confirmOrder,
     cancelOrder,
     getFulfillmentQueue,
-    updateOrderStatus
+    updateOrderStatus,
+    updatePaymentStatus
 };

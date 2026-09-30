@@ -3,6 +3,7 @@ const User = require("../models/User");
 const PurchaseOrder = require("../models/PurchaseOrder");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
+const { SUPPLIER_SORT } = require("../utils/sortOptions");
 const { ROLES, RECORD_STATUS, USER_STATUS, OPEN_PURCHASE_STATUSES } = require("../utils/constants");
 const { logAction, getChanges } = require("./auditService");
 
@@ -80,12 +81,18 @@ const getAuditFields = (supplier) => ({
 // ---------- Service functions ----------
 
 // GET /api/suppliers
-const getSuppliers = async ({ search, city, status, page, limit }) => {
+const getSuppliers = async ({ search, city, status, sort = "name", page, limit }) => {
     const filter = {};
 
     if (search) {
         const searchPattern = new RegExp(escapeRegex(search), "i");
-        filter.$or = [{ name: searchPattern }, { contactPerson: searchPattern }, { email: searchPattern }];
+        filter.$or = [
+            { name: searchPattern },
+            { contactPerson: searchPattern },
+            { email: searchPattern },
+            { phone: searchPattern },
+            { city: searchPattern }
+        ];
     }
     if (city) {
         filter.city = new RegExp(`^${escapeRegex(city)}$`, "i");
@@ -96,14 +103,30 @@ const getSuppliers = async ({ search, city, status, page, limit }) => {
 
     const [suppliers, total] = await Promise.all([
         Supplier.find(filter)
-            .sort({ name: 1 })
+            .sort(SUPPLIER_SORT[sort])
             .skip((page - 1) * limit)
             .limit(limit),
         Supplier.countDocuments(filter)
     ]);
 
+    // For the supplier cards: how many purchase orders each supplier has had,
+    // and how many different products it supplied on them
+    const stats = await PurchaseOrder.aggregate([
+        { $match: { supplier: { $in: suppliers.map((supplier) => supplier._id) } } },
+        { $unwind: "$items" },
+        { $group: { _id: "$supplier", products: { $addToSet: "$items.product" }, purchases: { $addToSet: "$_id" } } }
+    ]);
+    const statsById = Object.fromEntries(stats.map((row) => [row._id.toString(), row]));
+
     return {
-        suppliers,
+        suppliers: suppliers.map((supplier) => {
+            const row = statsById[supplier._id.toString()];
+            return {
+                ...supplier.toJSON(),
+                productCount: row ? row.products.length : 0,
+                purchaseCount: row ? row.purchases.length : 0
+            };
+        }),
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
     };
 };

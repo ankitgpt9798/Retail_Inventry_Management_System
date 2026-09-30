@@ -512,6 +512,37 @@ const getProductPerformance = async ({ from, to, warehouse, sortBy = "units", li
 // ================================================================
 // DASHBOARD — the spec's 10 KPIs (current state) + 6 charts (last 6 months)
 // ================================================================
+// Stock value of everything on hand = Σ (quantity × the product's current cost price)
+const getTotalStockValue = async () => {
+    const result = await Inventory.aggregate([
+        { $lookup: { from: "products", localField: "product", foreignField: "_id", as: "product" } },
+        { $unwind: "$product" },
+        { $group: { _id: null, value: { $sum: { $multiply: ["$quantity", "$product.costPrice"] } } } }
+    ]);
+    return result.length > 0 ? roundMoney(result[0].value) : 0;
+};
+
+// Active products with NOTHING available in any warehouse (including products never stocked)
+const countOutOfStockProducts = async () => {
+    const result = await Product.aggregate([
+        { $match: { status: RECORD_STATUS.ACTIVE } },
+        { $lookup: { from: "inventories", localField: "_id", foreignField: "product", as: "stock" } },
+        { $project: { available: { $sum: { $map: { input: "$stock", as: "row", in: { $subtract: ["$$row.quantity", "$$row.reservedQuantity"] } } } } } },
+        { $match: { available: { $lte: 0 } } },
+        { $count: "total" }
+    ]);
+    return result.length > 0 ? result[0].total : 0;
+};
+
+// Customers are grouped from orders the same way as the Customers page (email, else name + phone)
+const countCustomers = async () => {
+    const result = await Order.aggregate([
+        { $group: { _id: { $ifNull: ["$customer.email", { $concat: ["$customer.name", "|", { $ifNull: ["$customer.phone", ""] }] }] } } },
+        { $count: "total" }
+    ]);
+    return result.length > 0 ? result[0].total : 0;
+};
+
 const getDashboard = async () => {
     const [
         totalProducts,
@@ -523,7 +554,11 @@ const getDashboard = async () => {
         pendingOrders,
         completedOrders,
         lowStockProductIds,
-        pendingPurchases
+        pendingPurchases,
+        stockValue,
+        outOfStockProducts,
+        totalCustomers,
+        unconfirmedOrders
     ] = await Promise.all([
         Product.countDocuments({ status: RECORD_STATUS.ACTIVE }),
         Category.countDocuments({ status: RECORD_STATUS.ACTIVE }),
@@ -535,7 +570,12 @@ const getDashboard = async () => {
         Order.countDocuments({ status: ORDER_STATUS.DELIVERED }),
         // distinct: a product low in two warehouses counts once
         Inventory.distinct("product", { $expr: LOW_STOCK_CONDITION }),
-        PurchaseOrder.countDocuments({ status: { $in: PENDING_PURCHASE_STATUSES } })
+        PurchaseOrder.countDocuments({ status: { $in: PENDING_PURCHASE_STATUSES } }),
+        getTotalStockValue(),
+        countOutOfStockProducts(),
+        countCustomers(),
+        // Orders still waiting to be confirmed (no stock reserved yet)
+        Order.countDocuments({ status: ORDER_STATUS.PENDING })
     ]);
 
     const kpis = {
@@ -548,7 +588,11 @@ const getDashboard = async () => {
         completedOrders,
         lowStockProducts: lowStockProductIds.length,
         totalSuppliers,
-        pendingPurchases
+        pendingPurchases,
+        stockValue,
+        outOfStockProducts,
+        totalCustomers,
+        unconfirmedOrders
     };
 
     // Charts reuse the reports above (default range: last 6 months)

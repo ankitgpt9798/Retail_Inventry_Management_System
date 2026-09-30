@@ -23,6 +23,11 @@ const paginationSchema = {
 // ?search=ravi — optional free text used for "contains" searches
 const searchSchema = z.string().trim().max(100, "Search text is too long").optional();
 
+// ?sort=newest — one of the keys of a service's SORT_BY table, e.g. sortSchema(SORT_BY, "newest").
+// The default keeps the list's original order when no sort is asked for.
+const sortSchema = (sortBy, defaultSort) =>
+    z.enum(Object.keys(sortBy), { error: `Sort must be one of: ${Object.keys(sortBy).join(", ")}` }).default(defaultSort);
+
 // ?lowStock=true / ?isRead=false — accept only the words "true"/"false".
 // (z.coerce.boolean() would turn the text "false" into true, because any non-empty text is truthy)
 const booleanFlagSchema = (name) =>
@@ -64,6 +69,7 @@ module.exports = {
     objectIdSchema,
     paginationSchema,
     searchSchema,
+    sortSchema,
     booleanFlagSchema,
     rangeFields,
     withValidRange

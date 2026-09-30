@@ -4,18 +4,27 @@ const Warehouse = require("../models/Warehouse");
 const StockTransaction = require("../models/StockTransaction");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
+const { INVENTORY_SORT, TRANSACTION_SORT } = require("../utils/sortOptions");
 const {
     ROLES,
     RECORD_STATUS,
     STOCK_TRANSACTION_TYPE,
     STOCK_REFERENCE_TYPE,
-    NOTIFICATION_TYPE
+    NOTIFICATION_TYPE,
+    STOCK_STATUS,
+    OVERSTOCK_FACTOR
 } = require("../utils/constants");
 const { getStockTotals } = require("./warehouseService");
 const { logAction } = require("./auditService");
 const { notifyRoles } = require("./notificationService");
 
 const PRODUCT_FIELDS = "name sku reorderLevel status";
+// The inventory LIST shows more about each product (brand, prices, category) on its stock cards
+const LIST_PRODUCT_POPULATE = {
+    path: "product",
+    select: "name sku brand costPrice sellingPrice reorderLevel status category",
+    populate: { path: "category", select: "name" }
+};
 const WAREHOUSE_FIELDS = "name code city status";
 
 // Who receives low-stock alerts
@@ -25,6 +34,18 @@ const LOW_STOCK_ALERT_ROLES = [ROLES.ADMIN, ROLES.INVENTORY_MANAGER];
 // $expr lets a query compare fields of the same document with each other.
 const LOW_STOCK_CONDITION = {
     $lt: [{ $subtract: ["$quantity", "$reservedQuantity"] }, "$reorderLevel"]
+};
+
+// ?stockStatus= as MongoDB conditions (see STOCK_STATUS in constants for what each means)
+const AVAILABLE = { $subtract: ["$quantity", "$reservedQuantity"] };
+const OVERSTOCK_CONDITION = {
+    $and: [{ $gt: ["$reorderLevel", 0] }, { $gt: ["$quantity", { $multiply: ["$reorderLevel", OVERSTOCK_FACTOR] }] }]
+};
+const STOCK_STATUS_CONDITIONS = {
+    [STOCK_STATUS.OUT_OF_STOCK]: { $lte: [AVAILABLE, 0] },
+    [STOCK_STATUS.LOW_STOCK]: { $and: [{ $gt: [AVAILABLE, 0] }, LOW_STOCK_CONDITION] },
+    [STOCK_STATUS.OVERSTOCKED]: { $and: [{ $not: [LOW_STOCK_CONDITION] }, OVERSTOCK_CONDITION] },
+    [STOCK_STATUS.HEALTHY]: { $and: [{ $not: [LOW_STOCK_CONDITION] }, { $not: [OVERSTOCK_CONDITION] }] }
 };
 
 // ---------- Pure helpers (no database; easy to unit test) ----------
@@ -383,7 +404,7 @@ const undoShippedStock = async ({ productId, warehouseId, quantity, userId, refe
 // ---------- Reads ----------
 
 // GET /api/inventory — warehouse-wise view when ?warehouse= is given
-const getInventory = async ({ warehouse, product, search, lowStock, page, limit }) => {
+const getInventory = async ({ warehouse, product, category, search, lowStock, stockStatus, sort = "updated", page, limit }) => {
     const filter = {};
 
     if (warehouse) {
@@ -393,23 +414,33 @@ const getInventory = async ({ warehouse, product, search, lowStock, page, limit 
     if (product) {
         filter.product = product;
     }
-    else if (search) {
-        // Inventory rows don't contain product names, so first find the
+    else if (search || category) {
+        // Inventory rows don't contain product names or categories, so first find the
         // matching products, then keep the rows that belong to them
-        const searchPattern = new RegExp(escapeRegex(search), "i");
-        const matchingProducts = await Product.find({ $or: [{ name: searchPattern }, { sku: searchPattern }] }, "_id");
+        const productFilter = {};
+        if (search) {
+            const searchPattern = new RegExp(escapeRegex(search), "i");
+            productFilter.$or = [{ name: searchPattern }, { sku: searchPattern }, { brand: searchPattern }];
+        }
+        if (category) {
+            productFilter.category = category;
+        }
+        const matchingProducts = await Product.find(productFilter, "_id");
         filter.product = { $in: matchingProducts.map((p) => p._id) };
     }
 
-    if (lowStock) {
-        filter.$expr = LOW_STOCK_CONDITION;
-    }
+    // Both stock filters compare fields of the same record, so both go into $expr
+    const conditions = [];
+    if (lowStock) conditions.push(LOW_STOCK_CONDITION);
+    if (stockStatus) conditions.push(STOCK_STATUS_CONDITIONS[stockStatus]);
+    if (conditions.length === 1) filter.$expr = conditions[0];
+    if (conditions.length > 1) filter.$expr = { $and: conditions };
 
     const [inventories, total] = await Promise.all([
         Inventory.find(filter)
-            .populate("product", PRODUCT_FIELDS)
+            .populate(LIST_PRODUCT_POPULATE)
             .populate("warehouse", WAREHOUSE_FIELDS)
-            .sort({ updatedAt: -1 })
+            .sort(INVENTORY_SORT[sort])
             .skip((page - 1) * limit)
             .limit(limit),
         Inventory.countDocuments(filter)
@@ -453,7 +484,7 @@ const getProductStock = async (productId) => {
 };
 
 // GET /api/inventory/transactions — the full movement history
-const getTransactions = async ({ product, warehouse, type, from, to, page, limit }) => {
+const getTransactions = async ({ product, warehouse, type, from, to, sort = "newest", page, limit }) => {
     const filter = {};
     if (product) filter.product = product;
     if (warehouse) filter.warehouse = warehouse;
@@ -469,7 +500,7 @@ const getTransactions = async ({ product, warehouse, type, from, to, page, limit
             .populate("product", "name sku")
             .populate("warehouse", "name code")
             .populate("performedBy", "name")
-            .sort({ createdAt: -1 })
+            .sort(TRANSACTION_SORT[sort])
             .skip((page - 1) * limit)
             .limit(limit),
         StockTransaction.countDocuments(filter)

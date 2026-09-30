@@ -170,8 +170,35 @@ describe("GET /api/reports/dashboard", () => {
             completedOrders: 2,      // ORD-1 + ORD-6 (DELIVERED)
             lowStockProducts: 1,     // mouse
             totalSuppliers: 3,
-            pendingPurchases: 2      // PO-1 (partially received) + PO-4 (pending)
+            pendingPurchases: 2,     // PO-1 (partially received) + PO-4 (pending)
+            stockValue: 6104000,     // 150 laptops × 40,000 + 8 mice × 500 + 200 rice × 500
+            outOfStockProducts: 0,   // every active product has something available
+            totalCustomers: 1,       // all six orders are for the same "Customer"
+            unconfirmedOrders: 1     // ORD-5 (PENDING)
         });
+    });
+
+    test("out-of-stock counts active products with nothing available anywhere, and customers group by email", async () => {
+        const electronics = await Category.findOne({ name: "Electronics" });
+        // Never stocked → out of stock
+        await Product.create({ name: "Webcam", sku: "CAM-1", category: electronics._id, costPrice: 1, sellingPrice: 2 });
+        // Stocked, but everything reserved → out of stock
+        const tablet = await Product.create({ name: "Tablet", sku: "TAB-1", category: electronics._id, costPrice: 100, sellingPrice: 200 });
+        await Inventory.create({ product: tablet._id, warehouse: data.mumbai._id, quantity: 4, reservedQuantity: 4 });
+        // Two orders of one customer (same email) + one of another
+        for (const [orderNumber, customer] of [
+            ["ORD-7", { name: "Asha", email: "asha@example.com" }],
+            ["ORD-8", { name: "Asha Rao", email: "asha@example.com" }],
+            ["ORD-9", { name: "Vikram", phone: "98100" }]
+        ]) {
+            await Order.create({ orderNumber, customer, warehouse: data.delhi._id, createdBy: (await User.findOne())._id });
+        }
+
+        const { kpis } = (await staffAgent.get("/api/reports/dashboard")).body.data;
+
+        expect(kpis.outOfStockProducts).toBe(2);
+        expect(kpis.stockValue).toBe(6104400); // + 4 tablets × 100
+        expect(kpis.totalCustomers).toBe(3);   // "Customer", Asha, Vikram
     });
 
     test("all 6 charts are present, with 6 zero-filled months", async () => {

@@ -1,6 +1,7 @@
 const { z } = require("zod");
 const { TRANSFER_STATUS } = require("../utils/constants");
-const { objectIdSchema, paginationSchema, searchSchema } = require("./commonValidators");
+const { objectIdSchema, paginationSchema, searchSchema, sortSchema } = require("./commonValidators");
+const { TRANSFER_SORT, defaultSort } = require("../utils/sortOptions");
 
 // POST /api/transfers
 const createTransferSchema = z
@@ -34,7 +35,7 @@ const cancelTransferSchema = z.object({
     reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional()
 });
 
-// GET /api/transfers?status=&product=&warehouse=&fromWarehouse=&toWarehouse=&search=&page=&limit=
+// GET /api/transfers?status=&product=&warehouse=&fromWarehouse=&toWarehouse=&search=&sort=&page=&limit=
 const listTransfersQuerySchema = z.object({
     ...paginationSchema,
     status: z.enum(Object.values(TRANSFER_STATUS), { error: "Status is not valid" }).optional(),
@@ -42,7 +43,8 @@ const listTransfersQuerySchema = z.object({
     warehouse: objectIdSchema.optional(),
     fromWarehouse: objectIdSchema.optional(),
     toWarehouse: objectIdSchema.optional(),
-    search: searchSchema
+    search: searchSchema,
+    sort: sortSchema(TRANSFER_SORT, defaultSort(TRANSFER_SORT))
 });
 
 module.exports = { createTransferSchema, rejectTransferSchema, cancelTransferSchema, listTransfersQuerySchema };

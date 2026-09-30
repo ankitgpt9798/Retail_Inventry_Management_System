@@ -5,6 +5,7 @@ const User = require("../models/User");
 const Warehouse = require("../models/Warehouse");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
+const { PURCHASE_SORT } = require("../utils/sortOptions");
 const moveStatus = require("../utils/moveStatus");
 const roundMoney = require("../utils/roundMoney");
 const {
@@ -175,7 +176,7 @@ const purchaseLink = (purchase) => `/purchases/${purchase._id}`;
 // ---------- Reads ----------
 
 // GET /api/purchases
-const getPurchases = async ({ status, supplier, warehouse, search, page, limit }, currentUser) => {
+const getPurchases = async ({ status, supplier, warehouse, search, sort = "newest", page, limit }, currentUser) => {
     const filter = {};
 
     if (isSupplierUser(currentUser)) {
@@ -189,14 +190,19 @@ const getPurchases = async ({ status, supplier, warehouse, search, page, limit }
 
     if (status) filter.status = status;
     if (warehouse) filter.warehouse = warehouse;
-    if (search) filter.poNumber = new RegExp(escapeRegex(search), "i");
+    if (search) {
+        // PO number, or the name of the supplier
+        const searchPattern = new RegExp(escapeRegex(search), "i");
+        const matchingSuppliers = await Supplier.find({ name: searchPattern }, "_id");
+        filter.$or = [{ poNumber: searchPattern }, { supplier: { $in: matchingSuppliers.map((s) => s._id) } }];
+    }
 
     const [purchases, total] = await Promise.all([
         PurchaseOrder.find(filter)
             .populate("supplier", "name")
             .populate("warehouse", "name code")
             .populate("requestedBy", "name")
-            .sort({ createdAt: -1 })
+            .sort(PURCHASE_SORT[sort])
             .skip((page - 1) * limit)
             .limit(limit),
         PurchaseOrder.countDocuments(filter)

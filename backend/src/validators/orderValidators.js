@@ -1,6 +1,7 @@
 const { z } = require("zod");
-const { ORDER_STATUS } = require("../utils/constants");
-const { objectIdSchema, paginationSchema, searchSchema } = require("./commonValidators");
+const { ORDER_STATUS, PAYMENT_STATUS } = require("../utils/constants");
+const { objectIdSchema, paginationSchema, searchSchema, sortSchema } = require("./commonValidators");
+const { ORDER_SORT, defaultSort } = require("../utils/sortOptions");
 
 // Customers don't log in; their details are stored inside the order
 const customerSchema = z.object({
@@ -97,15 +98,25 @@ const updateOrderStatusSchema = z
         }
     });
 
-// GET /api/orders?status=&warehouse=&search=&from=&to=&page=&limit=
+// PUT /api/orders/:id/payment  { paymentStatus, note? }
+const updatePaymentSchema = z.object({
+    paymentStatus: z.enum(Object.values(PAYMENT_STATUS), {
+        error: `Payment status must be one of: ${Object.values(PAYMENT_STATUS).join(", ")}`
+    }),
+    note: z.string().trim().max(500, "Note is too long").optional()
+});
+
+// GET /api/orders?status=&paymentStatus=&warehouse=&search=&from=&to=&sort=&page=&limit=
 const listOrdersQuerySchema = z
     .object({
         ...paginationSchema,
         status: z.enum(Object.values(ORDER_STATUS), { error: "Status is not valid" }).optional(),
+        paymentStatus: z.enum(Object.values(PAYMENT_STATUS), { error: "Payment status is not valid" }).optional(),
         warehouse: objectIdSchema.optional(),
         search: searchSchema,
         from: z.coerce.date({ error: "from must be a valid date" }).optional(),
-        to: z.coerce.date({ error: "to must be a valid date" }).optional()
+        to: z.coerce.date({ error: "to must be a valid date" }).optional(),
+        sort: sortSchema(ORDER_SORT, defaultSort(ORDER_SORT))
     })
     .refine((query) => !query.from || !query.to || query.from <= query.to, {
         message: "from cannot be after to",
@@ -117,5 +128,6 @@ module.exports = {
     updateOrderSchema,
     cancelOrderSchema,
     updateOrderStatusSchema,
+    updatePaymentSchema,
     listOrdersQuerySchema
 };

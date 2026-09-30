@@ -1,6 +1,7 @@
 const { z } = require("zod");
 const { PURCHASE_STATUS } = require("../utils/constants");
-const { objectIdSchema, paginationSchema, searchSchema } = require("./commonValidators");
+const { objectIdSchema, paginationSchema, searchSchema, sortSchema } = require("./commonValidators");
+const { PURCHASE_SORT, defaultSort } = require("../utils/sortOptions");
 
 const quantitySchema = (label) =>
     z
@@ -101,13 +102,14 @@ const receivePurchaseSchema = z.object({
         .refine(hasUniqueProducts, { message: "Each product can appear only once per delivery" })
 });
 
-// GET /api/purchases?status=&supplier=&warehouse=&search=&page=&limit=
+// GET /api/purchases?status=&supplier=&warehouse=&search=&sort=&page=&limit=
 const listPurchasesQuerySchema = z.object({
     ...paginationSchema,
     status: z.enum(Object.values(PURCHASE_STATUS), { error: "Status is not valid" }).optional(),
     supplier: objectIdSchema.optional(),
     warehouse: objectIdSchema.optional(),
-    search: searchSchema
+    search: searchSchema,
+    sort: sortSchema(PURCHASE_SORT, defaultSort(PURCHASE_SORT))
 });
 
 module.exports = {

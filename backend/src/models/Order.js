@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { ORDER_STATUS } = require("../utils/constants");
+const { ORDER_STATUS, PAYMENT_STATUS } = require("../utils/constants");
 
 // Customers don't log in, so their details are stored inside the order
 // (an embedded sub-document) instead of in a separate collection.
@@ -73,6 +73,12 @@ const orderSchema = new mongoose.Schema(
             default: ORDER_STATUS.PENDING
         },
         statusHistory: [statusHistorySchema],
+        // Payment is tracked on its own: staff update it when money arrives or is refunded
+        paymentStatus: {
+            type: String,
+            enum: Object.values(PAYMENT_STATUS),
+            default: PAYMENT_STATUS.PENDING
+        },
         // Totals are calculated by the order service from the order items
         subtotal: {
             type: Number,
@@ -109,6 +115,7 @@ const orderSchema = new mongoose.Schema(
 
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ warehouse: 1, status: 1 });
+orderSchema.index({ paymentStatus: 1 });
 
 const Order = mongoose.model("Order", orderSchema, "orders");
 

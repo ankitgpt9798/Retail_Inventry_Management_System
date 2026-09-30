@@ -1,8 +1,10 @@
 const StockTransfer = require("../models/StockTransfer");
 const Inventory = require("../models/Inventory");
 const Warehouse = require("../models/Warehouse");
+const Product = require("../models/Product");
 const AppError = require("../utils/AppError");
 const escapeRegex = require("../utils/escapeRegex");
+const { TRANSFER_SORT } = require("../utils/sortOptions");
 const moveStatus = require("../utils/moveStatus");
 const {
     ROLES,
@@ -102,7 +104,7 @@ const transferLink = () => "/transfers";
 // ---------- Reads ----------
 
 // GET /api/transfers
-const getTransfers = async ({ status, product, warehouse, fromWarehouse, toWarehouse, search, page, limit }) => {
+const getTransfers = async ({ status, product, warehouse, fromWarehouse, toWarehouse, search, sort = "newest", page, limit }) => {
     const filter = {};
     if (status) filter.status = status;
     if (product) filter.product = product;
@@ -113,7 +115,11 @@ const getTransfers = async ({ status, product, warehouse, fromWarehouse, toWareh
         filter.$or = [{ fromWarehouse: warehouse }, { toWarehouse: warehouse }];
     }
     if (search) {
-        filter.transferNumber = new RegExp(escapeRegex(search), "i");
+        // Transfer number, or the product's name / SKU.
+        // $and, because the warehouse filter above may already use $or.
+        const searchPattern = new RegExp(escapeRegex(search), "i");
+        const matchingProducts = await Product.find({ $or: [{ name: searchPattern }, { sku: searchPattern }] }, "_id");
+        filter.$and = [{ $or: [{ transferNumber: searchPattern }, { product: { $in: matchingProducts.map((p) => p._id) } }] }];
     }
 
     const [transfers, total] = await Promise.all([
@@ -122,7 +128,7 @@ const getTransfers = async ({ status, product, warehouse, fromWarehouse, toWareh
             .populate("fromWarehouse", "name code")
             .populate("toWarehouse", "name code")
             .populate("requestedBy", "name")
-            .sort({ createdAt: -1 })
+            .sort(TRANSFER_SORT[sort])
             .skip((page - 1) * limit)
             .limit(limit),
         StockTransfer.countDocuments(filter)

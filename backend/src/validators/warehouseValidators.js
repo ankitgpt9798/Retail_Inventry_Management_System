@@ -1,6 +1,7 @@
 const { z } = require("zod");
 const { RECORD_STATUS } = require("../utils/constants");
-const { objectIdSchema, paginationSchema, searchSchema } = require("./commonValidators");
+const { objectIdSchema, paginationSchema, searchSchema, sortSchema } = require("./commonValidators");
+const { WAREHOUSE_SORT, defaultSort } = require("../utils/sortOptions");
 
 const statusSchema = z.enum(Object.values(RECORD_STATUS), { error: "Status must be ACTIVE or INACTIVE" });
 
@@ -56,13 +57,14 @@ const updateWarehouseSchema = z
         message: "Provide at least one field to update"
     });
 
-// GET /api/warehouses?search=&city=&status=&manager=&page=&limit=
+// GET /api/warehouses?search=&city=&status=&manager=&sort=&page=&limit=
 const listWarehousesQuerySchema = z.object({
     ...paginationSchema,
     search: searchSchema,
     city: z.string().trim().max(100).optional(),
     status: statusSchema.optional(),
-    manager: objectIdSchema.optional()
+    manager: objectIdSchema.optional(),
+    sort: sortSchema(WAREHOUSE_SORT, defaultSort(WAREHOUSE_SORT))
 });
 
 module.exports = { createWarehouseSchema, updateWarehouseSchema, listWarehousesQuerySchema };

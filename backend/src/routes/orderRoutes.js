@@ -9,6 +9,7 @@ const {
     updateOrderSchema,
     cancelOrderSchema,
     updateOrderStatusSchema,
+    updatePaymentSchema,
     listOrdersQuerySchema
 } = require("../validators/orderValidators");
 
@@ -30,6 +31,8 @@ router.put("/:id", canManage, validate(updateOrderSchema), orderController.updat
 router.put("/:id/confirm", canManage, orderController.confirmOrder);
 // Fulfillment: PROCESSING → PACKED → SHIPPED → DELIVERED
 router.put("/:id/status", canManage, validate(updateOrderStatusSchema), orderController.updateOrderStatus);
+// Payment is separate from delivery: PENDING / PAID / PARTIALLY_PAID / FAILED / REFUNDED
+router.put("/:id/payment", canManage, validate(updatePaymentSchema), orderController.updatePaymentStatus);
 // "Delete" cancels the order (it is kept for history, like every other delete in this API)
 router.delete("/:id", canManage, validate(cancelOrderSchema), orderController.cancelOrder);
 

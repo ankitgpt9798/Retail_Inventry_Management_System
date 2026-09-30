@@ -60,6 +60,29 @@ const CANCELLABLE_ORDER_STATUSES = [ORDER_STATUS.PENDING, ...RESERVING_ORDER_STA
 // Orders that still need their warehouse (it must stay active)
 const OPEN_ORDER_STATUSES = CANCELLABLE_ORDER_STATUSES;
 
+// Payment is tracked separately from the order's delivery status
+// (an order can be DELIVERED but still PENDING payment, for example)
+const PAYMENT_STATUS = {
+    PENDING: "PENDING",
+    PAID: "PAID",
+    PARTIALLY_PAID: "PARTIALLY_PAID",
+    FAILED: "FAILED",
+    REFUNDED: "REFUNDED"
+};
+
+// Stock condition of one inventory record (product × warehouse), used by the ?stockStatus= filter.
+//   OUT_OF_STOCK: nothing available (available = on hand − reserved)
+//   LOW_STOCK:    some available, but below the reorder level
+//   OVERSTOCKED:  more than OVERSTOCK_FACTOR × reorder level on hand
+//   HEALTHY:      everything else
+const STOCK_STATUS = {
+    HEALTHY: "HEALTHY",
+    LOW_STOCK: "LOW_STOCK",
+    OUT_OF_STOCK: "OUT_OF_STOCK",
+    OVERSTOCKED: "OVERSTOCKED"
+};
+const OVERSTOCK_FACTOR = 5;
+
 const PURCHASE_STATUS = {
     DRAFT: "DRAFT",
     PENDING: "PENDING",
@@ -129,6 +152,9 @@ module.exports = {
     TRANSFER_STATUS,
     OPEN_TRANSFER_STATUSES,
     ORDER_STATUS,
+    PAYMENT_STATUS,
+    STOCK_STATUS,
+    OVERSTOCK_FACTOR,
     RESERVING_ORDER_STATUSES,
     CANCELLABLE_ORDER_STATUSES,
     OPEN_ORDER_STATUSES,
