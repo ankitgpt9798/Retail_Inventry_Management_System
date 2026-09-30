@@ -2,7 +2,7 @@ const { test, expect, request } = require("@playwright/test");
 const { API_URL } = require("../config");
 const { anonymousApi, apiAs, loginApi, statePath } = require("../helpers/api");
 const { asAdmin, makeCategory, makeProduct, readAs } = require("../helpers/data");
-const { loginViaUi, makeUser, unique } = require("../helpers/ui");
+const { loginViaUi, makeUser, unique, cards } = require("../helpers/ui");
 
 // Cross-cutting security behaviour, poked at from outside like an attacker (or a careless client) would.
 // Where the system already does the right thing, the test says so. Where it does NOT (yet), the test pins
@@ -114,7 +114,7 @@ test.describe("what the browser does with hostile data", () => {
 
         await page.goto("/categories");
         await page.getByRole("searchbox", { name: "Search" }).fill("XSS");
-        await expect(page.getByRole("row").filter({ hasText: "onerror" }).first()).toBeVisible(); // the text is there, as text
+        await expect(cards(page).filter({ hasText: "onerror" }).first()).toBeVisible(); // the text is there, as text
         expect(await page.evaluate(() => window.__xss)).toBeUndefined();
         expect(await page.locator("img[src='x']").count()).toBe(0); // no image was created from it
         expect(dialogs).toEqual([]);

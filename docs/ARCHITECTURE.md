@@ -4,13 +4,13 @@ _Living document. Updated after every step._
 
 ## Project Overview
 Multi-warehouse retail inventory system (MERN). Two parts:
-- **Public website**: Home, Features, About, Contact, Login (real header/footer, not an admin panel).
+- **Public website**: one landing page (Home with Features, How it works and Roles sections), Contact, Login, Request access.
 - **Staff application**: for Admin, Inventory Manager, Staff and Supplier roles, with website-style page layouts.
 
 ## Technology Stack
 | Layer | Tech |
 |---|---|
-| Frontend | React + Vite, React Router, Redux Toolkit, Axios, Tailwind CSS + DaisyUI, React Hook Form + Zod, Lucide icons |
+| Frontend | React + Vite, React Router, Redux Toolkit, Axios, Tailwind CSS (own design system, no component library), React Hook Form + Zod, Lucide icons |
 | Backend | Node.js, Express 5, Mongoose, dotenv, cors, bcryptjs, jsonwebtoken, cookie-parser |
 | Database | MongoDB (local) — `mongodb://127.0.0.1:27017/retail_inventory` |
 | Testing | Jest + Supertest (backend), Vitest + React Testing Library (frontend), Postman |
@@ -45,7 +45,7 @@ RetailInventory/
 │   ├── src/
 │   │   ├── components/common/      Logo, Loader, ErrorAlert, PageHeader, TextField
 │   │   ├── components/layout/      PublicLayout/Header/Footer, AppLayout, AppNavbar, NotificationBell, UserMenu
-│   │   ├── pages/public/           Home, Features, About, Contact, Login, Register (+ content.js)
+│   │   ├── pages/public/           Home (landing page), Contact, Login, Register (+ content.js)
 │   │   ├── pages/app/              Dashboard, Profile, Forbidden
 │   │   ├── routes/                 AppRoutes (every URL), ProtectedRoute (login + role check)
 │   │   ├── services/api.js         the ONE Axios instance + 401 interceptor + getErrorMessage
@@ -208,6 +208,12 @@ User 1──* Notification,  User 1──* AuditLog
 | GET | /api/audit-logs?user=&action=&entityType=&entityId=&from=&to=&sort=&page=&limit= | ADMIN | Search audit trail; `entityType`+`entityId`+`sort=oldest` = one record's history |
 | GET | /api/audit-logs/filters | ADMIN | Distinct `actions` and `entityTypes` (for dropdowns) |
 | GET | /api/audit-logs/:id | ADMIN | One entry (old/new values, metadata) |
+| PUT | /api/orders/:id/payment | ADMIN, STAFF | `{paymentStatus: PENDING/PAID/PARTIALLY_PAID/FAILED/REFUNDED, note?}` — separate from delivery status, audited |
+| GET | /api/customers?search=&sort=&page=&limit= | ADMIN, MANAGER, STAFF | Read-only customer list **built from orders** (grouped by email, else name + phone): orders, open orders, total spent, first/last order |
+| POST | /api/contact | public | Contact form `{name, email, subject, message}` → saved in `contactMessages`, every admin gets a SYSTEM_ALERT notification |
+
+**`?sort=` on lists** (tables in `utils/sortOptions.js`; the first key is the default = the old order): suppliers/warehouses `name, name_desc, newest, oldest` (+ warehouses `capacity_high/low`), purchases/orders `newest, oldest, amount_high, amount_low`, transfers `newest, oldest, quantity_high/low`, inventory `updated, stock_low, stock_high`, stock transactions `newest, oldest`, customers `recent, name, spent_high, orders_high`.
+**Other list additions (UI redesign):** orders `?paymentStatus=` and search also matches customer email; inventory `?category=`, `?stockStatus=HEALTHY|LOW_STOCK|OUT_OF_STOCK|OVERSTOCKED` (overstocked = quantity > 5 × reorder level), brand search, and list rows include the product's brand, prices and category; purchases search matches the supplier name; transfers search matches product name/SKU; supplier rows include `productCount` and `purchaseCount`. Dashboard KPIs now also include `stockValue` (Σ quantity × cost price), `outOfStockProducts` (active products with nothing available anywhere), `totalCustomers` and `unconfirmedOrders` (PENDING).
 
 **List response shape:** `data: { users: [...], pagination: { page, limit, total, totalPages } }` (default limit 10, max 100).
 
@@ -384,7 +390,7 @@ Password guessing is slowed by two counters kept in the `loginattempts` collecti
 - Reading the audit log is not itself audited.
 
 ## Frontend (Step 17)
-**Design:** a public website (Home, Features, About, Contact, Login, Request access) with a real header/footer, and a staff app with a **top navigation** (no admin sidebar), centred page width, page headers and cards. Custom DaisyUI theme `retailflow` in `src/index.css`. Product name in the UI: "RetailFlow".
+**Design:** a public website (landing page, Contact, Login, Request access) with a real header/footer, and a staff app with a sidebar (see "UI Redesign" below), page headers and card lists. Design tokens in `src/index.css`. Product name in the UI: "RetailFlow".
 
 **Auth flow**
 ```
@@ -439,7 +445,7 @@ Password change → backend clears cookie → loggedOutWithMessage → /login
 - **Notifications (`/notifications`, every role):** full inbox with All/Unread, type filter, mark read / all, delete, pagination. Clicking a notification reads it and opens its `link`. The bell now has "View all notifications", opens a notification's link, and refreshes its unread number immediately when the page changes things (window event `notifications-changed` from `useUnreadCount`).
 - **Users (`/users`, admin):** list with search/role/status filters; approve pending sign-ups (`PUT status ACTIVE`), create, edit, reset password, deactivate (not yourself), reactivate. SUPPLIER users must pick a supplier company; moving a user away from SUPPLIER sends `supplier: null`. Your own role and status are shown read-only (the backend refuses those changes). `status: "PENDING"` is never sent (the backend only accepts ACTIVE/INACTIVE).
 - **Audit log (`/audit-logs`, admin):** read-only, filters (action / record type from `GET /audit-logs/filters`, user, dates, order), expandable row with field-by-field before/after and extra details.
-- **Navigation:** `APP_LINKS` have an optional `group`; `getNavItems(role)` turns them into single links and drop-downs (Catalog, Stock, Sales, Purchasing, Admin). A group with one visible link (a supplier's Purchases) is a plain link. Drop-downs open on focus, close on click-away and after every page change. The mobile menu (`PhoneMenu`) stays a flat list and, like the groups, is rebuilt closed after every page change.
+- **Navigation:** `APP_LINKS` have an optional `group`; `getNavSections(role)` turns them into sidebar sections (Catalog, Stock, Sales, Purchasing, Insights, Admin), showing only sections the role can open. Phones/tablets get the same links in a drawer that closes after choosing a page or with Escape.
 - **Code-splitting:** every staff page is `React.lazy`, loaded on first visit behind a `Suspense` spinner in `AppLayout`; `AppRoutes` is one `APP_PAGES` table (path + PAGE_ACCESS key + page). The public website stays in the first download. Main bundle is now 454 kB (142 kB gzip) and the "chunk larger than 500 kB" build warning is gone.
 - **Not built (possible later):** CSV/PDF export of reports, a dark theme, per-product stock view, phone-number clearing for suppliers, drill-down from a chart bar to its list.
 
@@ -533,6 +539,18 @@ The real React app in Chrome against the real Express API and a real MongoDB, dr
 | 15. Reports & analytics (dashboard KPIs, reports, chart data) | Done |
 | 16. Audit log API | Done (450 tests passing) — **backend complete** |
 | 17. Frontend (public website + staff app) | Done — all six parts (269 frontend tests) |
+| UI redesign + demo data | Done — card layout for every list, no DaisyUI, sidebar app shell, merged landing page, contact form, `npm run seed` (512 backend / 315 frontend tests) |
+
+## UI Redesign (card layout)
+- **Design system:** `src/index.css` defines colour tokens in Tailwind `@theme` (so `bg-primary`, `text-base-content/60` … work) and a few own classes (`btn`, `input`, `select`, `card`, `table`, `field-label`, `form-actions`, `spinner`, `skeleton`). DaisyUI was removed.
+- **Listing pages** (products, categories, inventory = stock catalog, stock history = adjustments, warehouses, transfers, orders, fulfillment, customers, suppliers, purchases, users, audit log, notifications) all use the same pieces in `components/common`: `ListToolbar` (+ `FilterSelect`, `DateFilter`), `RecordList` (skeleton / error / empty / "No X found — Clear filters" / grid), `RecordCard` (+ `CardFields`, `CardField`), `RecordActions`, `StatusBadge` (+ tables in `utils/statusStyles.js`), `Pagination` ("Showing 1–10 of 50", page numbers, compact on phones), `PageAlerts`. Filter state lives in `hooks/useFilters.js`, which also reads starting values from the URL (`/inventory?search=GRO-101`).
+- **Grid:** 1 card per row on phones, 2 from 640 px, 3 from 1280 px. Page size stays 10 (15 for stock history and audit log).
+- **Stat numbers:** `StatCard` is a CSS container; the number's size follows the card's width and long amounts wrap instead of being cut off.
+- **App shell:** sidebar with section headings (`getNavSections`) on ≥1024 px, a drawer on smaller screens.
+- **Pages removed/merged:** Features and About were removed; Home is the landing page (`/#features`, `/#workflow`, `/#roles`).
+
+## Demo data (`npm run seed` in backend/)
+`src/utils/seedDemo.js` + `src/utils/demoData.js`. Refuses when `NODE_ENV=production`. Deletes the business collections (and the audit log) and recreates them; **user accounts are kept** (missing demo users are added: kavya/arjun managers, rahul/neha staff — password `Demo12345`). Deterministic (seeded random numbers); dates spread over the last 12 months. It replays each stock record's history in date order so every `Inventory.quantity` equals its `stockTransactions` (opening stock + receipts − shipments ± transfers ± adjustments). Result: 10 categories, 50 products (3 inactive), 6 warehouses (1 inactive, empty), 66 stock records (healthy / low / out / overstocked), 15 suppliers (3 inactive), 30 customers, 50 orders (all statuses, 5 payment statuses), 25 purchase orders, 20 transfers, ~25 adjustments, low-stock notifications. Order / PO / transfer counters continue after the seeded numbers.
 
 ## Known Issues
 - While a multi-line order confirmation is being rolled back (one line failed), its already-reserved lines are held for a few milliseconds; another order confirming at that exact moment may be refused although stock is about to be released. Safe (it only errs towards "no"), rare, acceptable.

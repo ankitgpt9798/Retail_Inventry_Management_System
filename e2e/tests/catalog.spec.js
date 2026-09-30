@@ -2,11 +2,12 @@ const { test, expect } = require("@playwright/test");
 const { USERS } = require("../config");
 const { statePath } = require("../helpers/api");
 const { asAdmin, makeCategory, makeProduct, makeWarehouse, readAs, stockIn } = require("../helpers/data");
-const { flash, unique } = require("../helpers/ui");
+const { flash, unique, cards, cardOf, pagination } = require("../helpers/ui");
 
 // Phase 2: categories, products and warehouses, clicked through in the real app and checked in the real database.
 
-const rowOf = (page, text) => page.getByRole("row").filter({ hasText: text });
+// Each record is a card on the listing pages
+const rowOf = (page, text) => cardOf(page, text);
 
 // ======================================================================================
 test.describe("categories (admin)", () => {
@@ -94,16 +95,16 @@ test.describe("categories (admin)", () => {
         await page.getByRole("searchbox", { name: "Search" }).fill(prefix);
 
         // 12 matches, 10 per page
-        await expect(page.getByText("Page 1 of 2 · 12 items")).toBeVisible();
-        await expect(page.getByRole("row")).toHaveCount(11); // header + 10
+        await expect(pagination(page)).toContainText("Showing 1–10 of 12");
+        await expect(cards(page)).toHaveCount(10);
         await page.getByRole("button", { name: "Next page" }).click();
-        await expect(page.getByText("Page 2 of 2 · 12 items")).toBeVisible();
-        await expect(page.getByRole("row")).toHaveCount(3); // header + 2
+        await expect(pagination(page)).toContainText("Showing 11–12 of 12");
+        await expect(cards(page)).toHaveCount(2);
         await expect(page.getByRole("button", { name: "Next page" })).toBeDisabled();
 
         // A status filter goes back to page 1 and narrows to the one inactive category
         await page.getByRole("combobox", { name: "Status" }).selectOption("INACTIVE");
-        await expect(page.getByText("Page 1 of 1 · 1 item")).toBeVisible();
+        await expect(pagination(page)).toContainText("Showing 1–1 of 1");
         await expect(rowOf(page, `${prefix} 12`)).toContainText("Inactive");
     });
 });
@@ -229,26 +230,26 @@ test.describe("products (admin)", () => {
 
         await page.goto("/products");
         await page.getByRole("searchbox", { name: "Search" }).fill(brand); // search also looks at the brand
-        await expect(page.getByRole("row")).toHaveCount(4); // header + 3
+        await expect(cards(page)).toHaveCount(3);
 
         await page.getByRole("combobox", { name: "Sort by" }).selectOption("price_high");
-        await expect(page.getByRole("row").nth(1)).toContainText(dear.name);
-        await expect(page.getByRole("row").nth(3)).toContainText(cheap.name);
+        await expect(cards(page).nth(0)).toContainText(dear.name);
+        await expect(cards(page).nth(2)).toContainText(cheap.name);
         await page.getByRole("combobox", { name: "Sort by" }).selectOption("price_low");
-        await expect(page.getByRole("row").nth(1)).toContainText(cheap.name);
+        await expect(cards(page).nth(0)).toContainText(cheap.name);
 
         await page.getByRole("combobox", { name: "Status" }).selectOption("INACTIVE");
-        await expect(page.getByRole("row")).toHaveCount(2);
-        await expect(page.getByRole("row").nth(1)).toContainText(mid.name);
+        await expect(cards(page)).toHaveCount(1);
+        await expect(cards(page).nth(0)).toContainText(mid.name);
         await page.getByRole("combobox", { name: "Status" }).selectOption("");
 
         await page.getByRole("combobox", { name: "Category" }).selectOption({ label: category.name });
-        await expect(page.getByRole("row")).toHaveCount(4);
+        await expect(cards(page)).toHaveCount(3);
 
         // Find one by its SKU
         await page.getByRole("searchbox", { name: "Search" }).fill(dear.sku);
-        await expect(page.getByRole("row")).toHaveCount(2);
-        await expect(page.getByRole("row").nth(1)).toContainText(dear.name);
+        await expect(cards(page)).toHaveCount(1);
+        await expect(cards(page).nth(0)).toContainText(dear.name);
     });
 
     test("only ACTIVE categories can be chosen for a product", async ({ page }) => {
@@ -404,7 +405,7 @@ test.describe("view-only roles", () => {
                 await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
                 await expect(page.getByRole("button", { name: createButton })).toHaveCount(0);
                 await expect(page.getByRole("button", { name: /^(Edit|Deactivate|Reactivate) / })).toHaveCount(0);
-                await expect(page.getByRole("columnheader", { name: "Actions" })).toHaveCount(0);
+                await expect(page.locator("main article footer button")).toHaveCount(0); // cards have no action buttons
             });
         }
     });
@@ -415,7 +416,7 @@ test.describe("view-only roles", () => {
         test("products and categories are view-only for a manager too", async ({ page }) => {
             await makeProduct();
             await page.goto("/products");
-            await expect(page.getByRole("row").nth(1)).toBeVisible();
+            await expect(cards(page).nth(0)).toBeVisible();
             await expect(page.getByRole("button", { name: "New product" })).toHaveCount(0);
             await expect(page.getByRole("button", { name: /^(Edit|Deactivate) / })).toHaveCount(0);
 

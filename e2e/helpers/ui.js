@@ -25,14 +25,23 @@ const logoutViaUi = async (page) => {
     await page.getByRole("button", { name: "Log out" }).click();
 };
 
-// Opens a page the way a person does: open its menu group in the top bar, then click the link.
-//   await goToNav(page, "Catalog", "Products");        // grouped page
-//   await goToNav(page, null, "Reports");              // a link that stands alone
+// Opens a page the way a person does: click its link in the sidebar.
+// The group (the sidebar heading the link sits under) is only there to keep calls readable.
+//   await goToNav(page, "Catalog", "Products");
+//   await goToNav(page, null, "Dashboard");
 const goToNav = async (page, group, link) => {
-    const bar = page.getByRole("navigation", { name: "App" });
-    if (group) await bar.getByRole("button", { name: group }).click();
-    await bar.getByRole("link", { name: link, exact: true }).click();
+    await page.getByRole("navigation", { name: "App" }).getByRole("link", { name: link, exact: true }).click();
 };
+
+// Listing pages show one card (<article>) per record, inside <main>
+const cards = (page) => page.locator("main article");
+const cardOf = (page, text) => cards(page).filter({ hasText: text });
+
+// One labelled value on a card, e.g. cardValue(card, "Available") → the <dd> next to that label
+const cardValue = (card, label) => card.locator("dt", { hasText: new RegExp(`^${label}$`) }).locator("xpath=following-sibling::dd[1]");
+
+// The "Showing 1–10 of 12 products" line under a list
+const pagination = (page) => page.getByRole("navigation", { name: "Pagination" });
 
 // The green confirmation banner with this text (e.g. "Category created."). Looked up by its text because the
 // loading spinner also has role="status", so a bare getByRole("status") can match two things at once.
@@ -54,4 +63,4 @@ const makeUser = async (overrides = {}) => {
     return { ...user, _id: created._id };
 };
 
-module.exports = { unique, submitLoginForm, loginViaUi, logoutViaUi, goToNav, flash, tokenCookie, makeUser };
+module.exports = { unique, submitLoginForm, loginViaUi, logoutViaUi, goToNav, cards, cardOf, cardValue, pagination, flash, tokenCookie, makeUser };

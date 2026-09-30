@@ -25,7 +25,8 @@ test.describe.configure({ mode: "serial" });
 let W; // the scene
 const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value);
 // A summary tile (not a table heading with the same words)
-const tile = (page, label) => page.locator("div.rounded-box.p-4").filter({ has: page.getByText(label, { exact: true }) });
+// A number tile (StatCard): the card whose label is exactly this text
+const tile = (page, label) => page.locator('div[class~="@container"]').filter({ has: page.getByText(label, { exact: true }) });
 const rowOf = (page, text) => page.getByRole("row").filter({ hasText: text });
 
 test.beforeAll(async () => {
@@ -191,8 +192,8 @@ test.describe("every report: the API and the screen agree with the hand calculat
 
     test("a date range that ended long ago finds nothing, and a bad range is refused with the server's message", async ({ page }) => {
         await openReport(page, "Orders");
-        await page.getByLabel("From").fill("2020-01-01");
-        await page.getByLabel("To").fill("2020-01-31");
+        await page.getByLabel("From", { exact: true }).fill("2020-01-01");
+        await page.getByLabel("To", { exact: true }).fill("2020-01-31");
         await expect(tile(page, "All orders")).toContainText("0");
         await expect(tile(page, "Revenue")).toContainText(money(0));
 
@@ -225,6 +226,8 @@ test.describe("the dashboard", () => {
 
         const inventories = await pages("inventory", "inventories");
         const lowStock = await pages("inventory/low-stock", "inventories");
+        const activeProducts = await pages("products?status=ACTIVE", "products");
+        const orders = await pages("orders", "orders");
         const [pending, confirmed, processing, packed, shipped, delivered] = await Promise.all(
             ["PENDING", "CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED"].map(orderCount)
         );
@@ -238,18 +241,30 @@ test.describe("the dashboard", () => {
             totalOrders: pending + confirmed + processing + packed + shipped + delivered, // everything except cancelled
             pendingOrders: pending + confirmed + processing + packed,
             completedOrders: delivered,
-            pendingPurchases: (await Promise.all(["PENDING", "APPROVED", "ORDERED", "PARTIALLY_RECEIVED"].map(purchaseCount))).reduce((a, b) => a + b, 0)
+            pendingPurchases: (await Promise.all(["PENDING", "APPROVED", "ORDERED", "PARTIALLY_RECEIVED"].map(purchaseCount))).reduce((a, b) => a + b, 0),
+            // Σ units on hand × the product's cost price
+            stockValue: Math.round(inventories.reduce((sum, row) => sum + row.quantity * row.product.costPrice, 0) * 100) / 100,
+            // active products with nothing available in any warehouse (never stocked counts too)
+            outOfStockProducts: activeProducts.filter((product) =>
+                inventories.filter((row) => row.product._id === product._id).reduce((sum, row) => sum + row.availableQuantity, 0) <= 0
+            ).length,
+            // one customer per email, or per name + phone when there is no email
+            totalCustomers: new Set(orders.map((order) => order.customer.email || `${order.customer.name}|${order.customer.phone || ""}`)).size,
+            unconfirmedOrders: pending
         };
     };
 
-    test("the ten headline numbers equal an independent recount, and the screen shows the same", async ({ page }) => {
+    test("the headline numbers equal an independent recount, and the screen shows the same", async ({ page }) => {
         const expected = await recount();
         const { kpis } = await readAs("admin", "reports/dashboard");
         expect(kpis).toEqual(expected);
 
         await page.goto("/dashboard");
         for (const [key, value] of Object.entries(expected)) {
-            await expect(page.getByTestId(`kpi-${key}`), key).toHaveText(new Intl.NumberFormat("en-IN").format(value));
+            const shown = key === "stockValue"
+                ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value)
+                : new Intl.NumberFormat("en-IN").format(value);
+            await expect(page.getByTestId(`kpi-${key}`), key).toHaveText(shown);
         }
     });
 

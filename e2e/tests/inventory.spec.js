@@ -2,12 +2,13 @@ const { test, expect } = require("@playwright/test");
 const { USERS } = require("../config");
 const { apiAs, statePath } = require("../helpers/api");
 const { asAdmin, makeProduct, makeWarehouse, readAs, stockIn } = require("../helpers/data");
-const { flash } = require("../helpers/ui");
+const { flash, cards, cardOf, cardValue } = require("../helpers/ui");
 
 // Phase 3a: inventory. Stock in and out, capacity, reserved stock, low-stock alerts and the movement history:
 // clicked through in the real app, then checked in the real database.
 
-const rowOf = (page, text) => page.getByRole("row").filter({ hasText: text });
+// Each record is a card on the listing pages
+const rowOf = (page, text) => cardOf(page, text);
 const optionLabel = (product) => `${product.name} (${product.sku})`;
 const warehouseLabel = (warehouse) => `${warehouse.name} (${warehouse.code})`;
 
@@ -43,9 +44,9 @@ test.describe("stock in and out (inventory manager)", () => {
         await page.getByRole("searchbox", { name: "Search" }).fill(product.sku);
         const row = rowOf(page, product.sku);
         await expect(row).toContainText(warehouse.name);
-        await expect(row.getByRole("cell").nth(2)).toHaveText("30"); // on hand
-        await expect(row.getByRole("cell").nth(3)).toHaveText("0"); // reserved
-        await expect(row.getByRole("cell").nth(4)).toContainText("30"); // available
+        await expect(cardValue(row, "Current stock")).toHaveText("30"); // on hand
+        await expect(cardValue(row, "Reserved")).toHaveText("0");
+        await expect(cardValue(row, "Available")).toHaveText("30");
 
         expect(await stockOf(product, warehouse)).toMatchObject({ quantity: 30, reservedQuantity: 0, availableQuantity: 30 });
 
@@ -58,14 +59,14 @@ test.describe("stock in and out (inventory manager)", () => {
         // History: both movements with before → after, who did it, and the note
         await page.goto("/inventory/history");
         await page.getByRole("combobox", { name: "Warehouse" }).selectOption({ label: warehouse.name });
-        await expect(page.getByRole("row")).toHaveCount(3); // header + 2
-        const newest = page.getByRole("row").nth(1);
+        await expect(cards(page)).toHaveCount(2);
+        const newest = cards(page).nth(0);
         await expect(newest).toContainText("Stock in");
         await expect(newest).toContainText("+20");
         await expect(newest).toContainText("30 → 50");
         await expect(newest).toContainText(USERS.manager.name);
-        await expect(page.getByRole("row").nth(2)).toContainText("0 → 30");
-        await expect(page.getByRole("row").nth(2)).toContainText("First delivery");
+        await expect(cards(page).nth(1)).toContainText("0 → 30");
+        await expect(cards(page).nth(1)).toContainText("First delivery");
     });
 
     test("stock in beyond the warehouse's capacity is refused, and nothing changes", async ({ page }) => {
@@ -108,8 +109,8 @@ test.describe("stock in and out (inventory manager)", () => {
         await page.goto("/inventory/history");
         await page.getByRole("combobox", { name: "Warehouse" }).selectOption({ label: warehouse.name });
         await page.getByRole("combobox", { name: "Type" }).selectOption("STOCK_OUT");
-        await expect(page.getByRole("row")).toHaveCount(2);
-        const row = page.getByRole("row").nth(1);
+        await expect(cards(page)).toHaveCount(1);
+        const row = cards(page).nth(0);
         await expect(row).toContainText("−20");
         await expect(row).toContainText("50 → 30");
         await expect(row).toContainText("damaged in transit");
@@ -207,7 +208,7 @@ test.describe("reorder level and low-stock alerts", () => {
         expect(await lowStockNotes("manager2")).toHaveLength(1);
 
         // The low-stock filter finds it
-        await ravi.getByLabel("Low stock only").check();
+        await ravi.getByRole("combobox", { name: "Stock status" }).selectOption("BELOW_REORDER");
         await expect(rowOf(ravi, product.sku)).toBeVisible();
         await raviContext.close();
     });
@@ -233,7 +234,7 @@ test.describe("reorder level and low-stock alerts", () => {
         await expect(neha.getByLabel(`Notifications, ${before + 1} unread`)).toBeVisible();
 
         await neha.goto("/notifications");
-        const item = neha.getByRole("listitem").filter({ hasText: product.sku });
+        const item = neha.locator("main article").filter({ hasText: product.sku });
         await expect(item).toContainText("Low stock");
         await item.getByRole("button", { name: /Mark ".*" as read/ }).click();
         await expect(neha.getByLabel(`Notifications, ${before} unread`)).toBeVisible();
@@ -255,7 +256,7 @@ test.describe("reorder level and low-stock alerts", () => {
         const context = await browser.newContext({ storageState: statePath("manager2") });
         const page = await context.newPage();
         await page.goto("/notifications");
-        await page.getByRole("listitem").filter({ hasText: product.sku }).getByText("Low stock", { exact: true }).first().click();
+        await page.locator("main article").filter({ hasText: product.sku }).getByText("Low stock", { exact: true }).first().click();
 
         await expect(page).toHaveURL(/\/inventory$/);
         await expect(page.getByRole("heading", { level: 1, name: "Inventory" })).toBeVisible();
@@ -276,24 +277,24 @@ test.describe("stock history filters", () => {
 
         await page.goto("/inventory/history");
         await page.getByRole("combobox", { name: "Warehouse" }).selectOption({ label: warehouse.name });
-        await expect(page.getByRole("row")).toHaveCount(3);
+        await expect(cards(page)).toHaveCount(2);
 
         await page.getByRole("combobox", { name: "Type" }).selectOption("STOCK_IN");
-        await expect(page.getByRole("row")).toHaveCount(2);
-        await expect(page.getByRole("row").nth(1)).toContainText("+40");
+        await expect(cards(page)).toHaveCount(1);
+        await expect(cards(page).nth(0)).toContainText("+40");
         await page.getByRole("combobox", { name: "Type" }).selectOption("");
 
         // Today, both ends: everything that happened today is included, even things from a moment ago
         const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in the computer's own time zone
-        await page.getByLabel("From").fill(today);
-        await page.getByLabel("To").fill(today);
-        await expect(page.getByRole("row")).toHaveCount(3);
+        await page.getByLabel("From", { exact: true }).fill(today);
+        await page.getByLabel("To", { exact: true }).fill(today);
+        await expect(cards(page)).toHaveCount(2);
 
         // A range that ended yesterday contains nothing
         const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toLocaleDateString("en-CA");
-        await page.getByLabel("From").fill("2020-01-01");
-        await page.getByLabel("To").fill(yesterday);
-        await expect(page.getByText("No stock movements found.")).toBeVisible();
+        await page.getByLabel("From", { exact: true }).fill("2020-01-01");
+        await page.getByLabel("To", { exact: true }).fill(yesterday);
+        await expect(page.getByText("No stock movements found")).toBeVisible();
     });
 });
 
@@ -310,9 +311,9 @@ test.describe("staff", () => {
         await expect(rowOf(page, product.sku)).toContainText("12");
         await expect(page.getByRole("button", { name: /^Stock (in|out)$/ })).toHaveCount(0);
         await expect(page.getByRole("button", { name: /Edit reorder level|Add stock to|Remove stock from/ })).toHaveCount(0);
-        await expect(page.getByRole("link", { name: "Stock history" })).toBeVisible();
+        await expect(page.getByRole("main").getByRole("link", { name: "Stock history" })).toBeVisible();
 
-        await page.getByRole("link", { name: "Stock history" }).click();
+        await page.getByRole("main").getByRole("link", { name: "Stock history" }).click();
         await expect(page.getByRole("heading", { level: 1, name: "Stock history" })).toBeVisible();
     });
 });

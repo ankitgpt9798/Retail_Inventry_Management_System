@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { anonymousApi, apiAs, loginApi, statePath } = require("../helpers/api");
-const { flash, loginViaUi, makeUser, submitLoginForm, tokenCookie, unique } = require("../helpers/ui");
+const { flash, loginViaUi, makeUser, submitLoginForm, tokenCookie, unique, cards } = require("../helpers/ui");
 const { readAs } = require("../helpers/data");
 
 // Login guessing protection (was finding L2: no limit at all). Five wrong passwords lock an account for 15 minutes;
@@ -156,8 +156,8 @@ test.describe("what the admin sees and can do", () => {
         const page = await context.newPage();
         await page.goto("/audit-logs");
         await page.getByRole("combobox", { name: "User" }).selectOption({ label: user.name });
-        await expect(page.getByRole("row").filter({ hasText: "Login failed" })).toHaveCount(5);
-        await expect(page.getByRole("row").filter({ hasText: "Account locked" })).toHaveCount(1);
+        await expect(cards(page).filter({ hasText: "Login failed" })).toHaveCount(5);
+        await expect(cards(page).filter({ hasText: "Account locked" })).toHaveCount(1);
         await context.close();
     });
 

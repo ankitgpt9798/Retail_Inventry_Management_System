@@ -46,7 +46,7 @@ responsive-layout sweep); a single file takes under a minute.
 | `tests/journeys.spec.js` | 8 | two long journeys through the whole system, five people, everything must add up |
 | `tests/security.spec.js` | x | injection, malformed input, XSS, mass assignment, protective headers |
 | `tests/login-protection.spec.js` | x | password-guessing lockout: accounts, unknown emails, parallel guesses, audit trail, admin unlock |
-| `tests/layout.spec.js` | x | no sideways scrolling at phone and tablet sizes, on every page; the phone menu |
+| `tests/layout.spec.js` | x | no sideways scrolling at 360–1024 px, on every page; the phone menu (drawer); cards stack one per row on phones |
 | `tests/zz-limits.spec.js` | x | size limits (runs last: it creates 105 products) |
 | `helpers/` | | `apiAs("admin")`, `makeProduct()`, `flows.js` (multi-step business flows), UI helpers |
 
@@ -63,7 +63,7 @@ to remove the marker. If a new finding turns up, use the same pattern.
 | F3 | **Fixed** | Every drop-down loaded only the first 100 items (the API's per-request maximum). With more than 100 active products the older ones couldn't be chosen when writing an order, stock or transfer form, so they couldn't be sold through the app; the same for warehouses, suppliers and categories. `useOptions` (and the two pages that had their own copy) now load every page through the shared `services/fetchAllPages.js` (all pages at once, duplicates removed, safety cap of 50 pages = 5,000 items). If lists ever reach thousands of items, a search-as-you-type drop-down would be the next step. | `zz-limits.spec.js`, `fetchAllPages.test.js`, `useOptions.test.jsx` |
 | F4 | **Fixed** | A bar in a bar chart was announced (and its tooltip titled) without the year ("Sept: ₹5,040.00"), while a line chart said "Sept 2026". `BarChart` now uses the full `title` when the data has one (the axis keeps the short label); ranked lists have no title and are unchanged. | `charts.test.jsx`, `reports.spec.js` |
 | F5 | **Fixed** | A request body over 100 KB was answered `500 SERVER_ERROR` (and logged as a server fault) instead of `413`; the error handler didn't know that case. `errorMiddleware.js` now answers `413 PAYLOAD_TOO_LARGE` with no error log. | `security.spec.js`, backend `auth.test.js` |
-| F6 | **Fixed** | On a phone, the menu stayed open on top of the page you just opened (the desktop drop-downs closed themselves; the phone menu did not). The phone menu is now its own `PhoneMenu` component in `AppNavbar.jsx`, rebuilt closed after every page change like the desktop groups. | `layout.spec.js`, `AppNavbar.test.jsx` |
+| F6 | **Fixed** | On a phone, the menu stayed open on top of the page you just opened (the desktop drop-downs closed themselves; the phone menu did not). The phone menu is now its own `PhoneMenu` component in `AppNavbar.jsx`, rebuilt closed after every page change like the desktop groups. (Since the UI redesign the app has a sidebar, and phones get a drawer that closes after every page change or with Escape.) | `layout.spec.js`, `AppNavbar.test.jsx` |
 | L1 | **Fixed** | Logout only removed the cookie in the browser; a copy of the token stayed valid until it expired (about a day). Every login token now carries a unique id (`jti`); logout puts that id on a `revokedtokens` list (removed automatically once the token would have expired) and `protect` refuses it with `401 SESSION_ENDED`. Only the token being logged out is ended: the same person's other devices keep working. A password change/reset still ends every session. Tokens issued before this change have no id and simply expire. | `auth.spec.js`, backend `logout.test.js` |
 | L2 | **Fixed** | Login had no rate limit or lockout: unlimited password guesses. Now 5 wrong passwords lock an account for 15 minutes (even the right password is refused meanwhile: `429` with `Retry-After`) and 20 failures from one network address lock that address. An attempt slot is claimed atomically before the password is checked, so guesses sent all at once can't get past the limit; unknown emails behave identically (no way to tell who has an account); a good login clears the count; an admin password reset lifts a lock; `LOGIN_FAILED` and `ACCOUNT_LOCKED` go to the audit log. | `login-protection.spec.js`, backend `loginLimits.test.js` |
 | L3 | **Fixed** | The API sent `X-Powered-By: Express` and none of the usual protective headers. `backend/src/app.js` now uses helmet (nosniff, frame and referrer policies, CSP `frame-ancestors`, cross-origin-resource-policy `same-site`; HSTS only in production) and adds `Cache-Control: no-store` to every API answer. | `security.spec.js`, backend `health.test.js` |
@@ -74,3 +74,9 @@ Every stock, money and status number matched a hand calculation; two people acti
 (stock out, confirm, ship, dispatch, receive) never double-counted anything; a supplier can only ever see their own
 company's sent orders; notifications are private; the audit log can't be altered; role changes and password resets
 take effect on the very next request; and no page is wider than a phone screen.
+
+## After the UI redesign (card layout)
+Listing pages show one **card** (`<article>`) per record instead of table rows, so the tests find records with
+`cardOf(page, text)` / `cards(page)` and read a labelled value with `cardValue(card, "Available")` (all in `helpers/ui.js`).
+`goToNav` clicks a sidebar link, and paging is checked through the "Showing 1–10 of 12" line (`pagination(page)`).
+Reports still use tables, so `reports.spec.js` keeps its row lookups for them.

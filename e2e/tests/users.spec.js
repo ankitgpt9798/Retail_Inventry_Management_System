@@ -2,14 +2,15 @@ const { test, expect } = require("@playwright/test");
 const { API_URL } = require("../config");
 const { apiAs, createVia, loginApi, statePath } = require("../helpers/api");
 const { asAdmin, readAs } = require("../helpers/data");
-const { flash, goToNav, loginViaUi, makeUser, submitLoginForm, tokenCookie, unique } = require("../helpers/ui");
+const { flash, goToNav, loginViaUi, makeUser, submitLoginForm, tokenCookie, unique, cardOf, pagination } = require("../helpers/ui");
 
 // Phase 6b: user management and the profile page, as the admin, in the real app.
 
 // A browser with NO login. (browser.newContext() alone would inherit the admin login from test.use below.)
 const strangerContext = (browser) => browser.newContext({ storageState: { cookies: [], origins: [] } });
 
-const rowOf = (page, text) => page.getByRole("row").filter({ hasText: text });
+// Each record is a card on the listing pages
+const rowOf = (page, text) => cardOf(page, text);
 
 test.describe("user management (admin)", () => {
     test.use({ storageState: statePath("admin") });
@@ -182,15 +183,15 @@ test.describe("user management (admin)", () => {
         }
         await page.goto("/users");
         await page.getByRole("searchbox", { name: "Search" }).fill(tag);
-        await expect(page.getByText("Page 1 of 2 · 12 items")).toBeVisible();
+        await expect(pagination(page)).toContainText("Showing 1–10 of 12");
         await page.getByRole("button", { name: "Next page" }).click();
-        await expect(page.getByText("Page 2 of 2 · 12 items")).toBeVisible();
+        await expect(pagination(page)).toContainText("Showing 11–12 of 12");
 
         await page.getByRole("combobox", { name: "Role" }).selectOption("INVENTORY_MANAGER");
-        await expect(page.getByText("Page 1 of 1 · 4 items")).toBeVisible();
+        await expect(pagination(page)).toContainText("Showing 1–4 of 4");
         await page.getByRole("combobox", { name: "Role" }).selectOption("");
         await page.getByRole("combobox", { name: "Status" }).selectOption("INACTIVE");
-        await expect(page.getByText("No users found.")).toBeVisible();
+        await expect(page.getByText("No users found")).toBeVisible();
     });
 
     test("the API never sends password hashes or token counters", async () => {

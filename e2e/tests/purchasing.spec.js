@@ -2,13 +2,14 @@ const { test, expect } = require("@playwright/test");
 const { USERS } = require("../config");
 const { apiAs, createVia, loginApi, statePath } = require("../helpers/api");
 const { asAdmin, makeProduct, makeWarehouse, readAs } = require("../helpers/data");
-const { flash, submitLoginForm, unique } = require("../helpers/ui");
+const { flash, submitLoginForm, unique, cards, cardOf } = require("../helpers/ui");
 
 // Phase 5: suppliers, purchase orders and the supplier portal. Two managers run the approval flow,
 // a supplier user (from a different company than the buyer) confirms and updates delivery,
 // and stock arrives in stages. Everything is checked in the real database.
 
-const rowOf = (page, text) => page.getByRole("row").filter({ hasText: text });
+// Each record is a card on the listing pages
+const rowOf = (page, text) => cardOf(page, text);
 
 const stockOf = async (product, warehouse) => {
     const { inventories } = await readAs("admin", `inventory?product=${product._id}&warehouse=${warehouse._id}`);
@@ -276,7 +277,7 @@ test.describe("the supplier portal keeps companies apart", () => {
         // In the browser: the list shows just one row, and the other order's page is "not found"
         const { context, page } = await pageAsSupplier(browser, mine);
         await page.goto("/purchases");
-        await expect(page.getByRole("row")).toHaveCount(2); // header + 1
+        await expect(cards(page)).toHaveCount(1);
         await expect(rowOf(page, myOrder.poNumber)).toBeVisible();
         await expect(page.getByText(theirOrder.poNumber)).toHaveCount(0);
         await page.goto(`/purchases/${theirOrder._id}`);
@@ -494,13 +495,13 @@ test.describe("the purchase form and list", () => {
         const sent = await purchaseVia("manager", scene, [[scene.productB, 4]], { submit: true });
         await page.goto("/purchases");
         await page.getByRole("combobox", { name: "Supplier" }).selectOption(scene.supplier._id);
-        await expect(page.getByRole("row")).toHaveCount(3); // header + 2
+        await expect(cards(page)).toHaveCount(2);
         await page.getByRole("combobox", { name: "Status" }).selectOption("PENDING");
-        await expect(page.getByRole("row")).toHaveCount(2);
+        await expect(cards(page)).toHaveCount(1);
         await expect(rowOf(page, sent.poNumber)).toContainText("Awaiting approval");
         await page.getByRole("combobox", { name: "Status" }).selectOption("");
         await page.getByRole("searchbox", { name: "Search" }).fill(draft.poNumber);
-        await expect(page.getByRole("row")).toHaveCount(2);
+        await expect(cards(page)).toHaveCount(1);
         await expect(rowOf(page, draft.poNumber)).toContainText("Draft");
     });
 

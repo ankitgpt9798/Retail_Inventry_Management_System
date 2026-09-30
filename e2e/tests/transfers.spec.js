@@ -2,11 +2,12 @@ const { test, expect } = require("@playwright/test");
 const { USERS } = require("../config");
 const { apiAs, createVia, statePath } = require("../helpers/api");
 const { asAdmin, makeProduct, makeWarehouse, readAs, stockIn } = require("../helpers/data");
-const { flash } = require("../helpers/ui");
+const { flash, cardOf } = require("../helpers/ui");
 
 // Phase 3b: stock transfers between warehouses, end to end. Two different managers, real stock, real notifications.
 
-const rowOf = (page, text) => page.getByRole("row").filter({ hasText: text });
+// Each record is a card on the listing pages
+const rowOf = (page, text) => cardOf(page, text);
 
 // The id of a user, looked up by email (needed to make someone a warehouse manager)
 const userId = async (email) => (await readAs("admin", `users?search=${encodeURIComponent(email)}`)).users[0]._id;

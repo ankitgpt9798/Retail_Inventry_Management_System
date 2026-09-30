@@ -3,14 +3,15 @@ const { USERS } = require("../config");
 const { apiAs, createVia, statePath } = require("../helpers/api");
 const { asAdmin, makeProduct, makeWarehouse, readAs, stockIn } = require("../helpers/data");
 const flows = require("../helpers/flows");
-const { flash, goToNav, submitLoginForm, unique } = require("../helpers/ui");
+const { flash, goToNav, submitLoginForm, unique, cards, cardOf, cardValue } = require("../helpers/ui");
 
 // Phase 8: two long journeys through the WHOLE system. Five different people, each in their own browser,
 // doing their part through the real screens. At the end, stock, money, notifications, reports, the dashboard
 // and the audit trail must all tell the same story.
 
 const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value);
-const rowOf = (page, text) => page.getByRole("row").filter({ hasText: text });
+// Each record is a card on the listing pages
+const rowOf = (page, text) => cardOf(page, text);
 const kpis = async () => (await readAs("admin", "reports/dashboard")).kpis;
 const titlesFor = async (who, text) => {
     const client = typeof who === "string" ? await apiAs(who) : who;
@@ -118,7 +119,7 @@ test("Journey 1: from an empty catalog to a delivered sale: set up → buy → r
     const sup = await supplierContext.newPage();
     await submitLoginForm(sup, supplierUser);
     await expect(sup).toHaveURL(/\/purchases$/);
-    await expect(sup.getByRole("row")).toHaveCount(2);
+    await expect(cards(sup)).toHaveCount(1);
     await sup.getByRole("link", { name: `View ${po.poNumber}` }).click();
     await sup.getByRole("button", { name: "Confirm order" }).click();
     await sup.getByRole("dialog").getByLabel("Delivery note").fill("On its way");
@@ -173,7 +174,7 @@ test("Journey 1: from an empty catalog to a delivered sale: set up → buy → r
     // Stock and the movement history: +30 from the supplier, −4 for the customer
     await ravi.page.goto("/inventory");
     await ravi.page.getByRole("searchbox", { name: "Search" }).fill(names.sku);
-    await expect(rowOf(ravi.page, names.sku).getByRole("cell").nth(2)).toHaveText("26");
+    await expect(cardValue(rowOf(ravi.page, names.sku), "Current stock")).toHaveText("26");
     const { transactions } = await readAs("admin", `inventory/transactions?product=${product._id}&limit=20`);
     expect(transactions.map((t) => [t.type, t.quantity, t.referenceType]).sort()).toEqual([["STOCK_IN", 30, "PURCHASE_ORDER"], ["STOCK_OUT", 4, "ORDER"]].sort());
 
@@ -236,6 +237,8 @@ test("Journey 2: a low-stock alert → the manager sees it → moves stock from 
     const ravi = await browser.newContext({ storageState: statePath("manager") });
     const raviPage = await ravi.newPage();
     await nehaPage.goto("/dashboard");
+    // The bell says "0 unread" until its first request answers, so wait for that before reading the number
+    await nehaPage.waitForLoadState("networkidle");
     const unread = async () => Number(/(\d+) unread/.exec(await nehaPage.getByLabel(/^Notifications, /).getAttribute("aria-label"))[1]);
     const unreadBefore = await unread();
 

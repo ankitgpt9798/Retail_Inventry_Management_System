@@ -2,12 +2,13 @@ const { test, expect } = require("@playwright/test");
 const { USERS } = require("../config");
 const { apiAs, createVia, statePath } = require("../helpers/api");
 const { asAdmin, makeProduct, makeWarehouse, readAs, stockIn } = require("../helpers/data");
-const { flash, unique } = require("../helpers/ui");
+const { flash, unique, cards, cardOf } = require("../helpers/ui");
 
 // Phase 4: customer orders and fulfillment. Reserve stock on confirm, take it out on shipping,
 // release it on cancel, and never sell what isn't there: all watched in the real database.
 
-const rowOf = (page, text) => page.getByRole("row").filter({ hasText: text });
+// Each record is a card on the listing pages
+const rowOf = (page, text) => cardOf(page, text);
 
 const stockOf = async (product, warehouse) => {
     const { inventories } = await readAs("admin", `inventory?product=${product._id}&warehouse=${warehouse._id}`);
@@ -386,16 +387,16 @@ test.describe("the orders list and the fulfillment queue", () => {
 
         await page.goto("/orders");
         await page.getByRole("searchbox", { name: "Search" }).fill(tag);
-        await expect(page.getByRole("row")).toHaveCount(3); // header + 2
+        await expect(cards(page)).toHaveCount(2);
 
         await page.getByRole("combobox", { name: "Status" }).selectOption("CONFIRMED");
-        await expect(page.getByRole("row")).toHaveCount(2);
+        await expect(cards(page)).toHaveCount(1);
         await expect(rowOf(page, `Beta ${tag}`)).toContainText("Confirmed");
         await page.getByRole("combobox", { name: "Status" }).selectOption("");
 
         // Find one by its number
         await page.getByRole("searchbox", { name: "Search" }).fill(alpha.orderNumber);
-        await expect(page.getByRole("row")).toHaveCount(2);
+        await expect(cards(page)).toHaveCount(1);
         await expect(rowOf(page, alpha.orderNumber)).toContainText("Pending");
         await page.getByRole("link", { name: `View ${alpha.orderNumber}` }).click();
         await expect(page.getByRole("heading", { level: 1, name: alpha.orderNumber })).toBeVisible();
@@ -404,12 +405,12 @@ test.describe("the orders list and the fulfillment queue", () => {
         await page.goto("/orders");
         await page.getByRole("searchbox", { name: "Search" }).fill(tag);
         const today = new Date().toLocaleDateString("en-CA");
-        await page.getByLabel("From").fill(today);
-        await page.getByLabel("To").fill(today);
-        await expect(page.getByRole("row")).toHaveCount(3);
-        await page.getByLabel("From").fill("2020-01-01");
-        await page.getByLabel("To").fill("2020-01-31");
-        await expect(page.getByText("No orders found.")).toBeVisible();
+        await page.getByLabel("From", { exact: true }).fill(today);
+        await page.getByLabel("To", { exact: true }).fill(today);
+        await expect(cards(page)).toHaveCount(2);
+        await page.getByLabel("From", { exact: true }).fill("2020-01-01");
+        await page.getByLabel("To", { exact: true }).fill("2020-01-31");
+        await expect(page.getByText("No orders found")).toBeVisible();
         expect(beta.orderNumber).toBeTruthy();
     });
 

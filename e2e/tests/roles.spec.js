@@ -23,6 +23,7 @@ const PAGES = [
     { path: "/orders", heading: "Orders", roles: ["admin", "manager", "staff"] },
     { path: "/orders/new", heading: "New order", roles: ["admin", "staff"] },
     { path: "/fulfillment", heading: "Fulfillment", roles: ["admin", "manager", "staff"] },
+    { path: "/customers", heading: "Customers", roles: ["admin", "manager", "staff"] },
     { path: "/suppliers", heading: "Suppliers", roles: ["admin", "manager"] },
     { path: "/purchases", heading: /^(Purchase orders|My purchase orders)$/, roles: ["admin", "manager", "supplier"] },
     { path: "/purchases/new", heading: "New purchase order", roles: ["admin", "manager"] },
@@ -33,11 +34,11 @@ const PAGES = [
     { path: "/profile", heading: "My profile", roles: ["admin", "manager", "staff", "supplier"] }
 ];
 
-// The links each role's navigation bar contains (in the drop-down menus too)
+// The links each role's sidebar contains
 const NAV_LINKS = {
-    admin: ["Dashboard", "Products", "Categories", "Inventory", "Warehouses", "Transfers", "Orders", "Fulfillment", "Suppliers", "Purchases", "Reports", "Users", "Audit log"],
-    manager: ["Dashboard", "Products", "Categories", "Inventory", "Warehouses", "Transfers", "Orders", "Fulfillment", "Suppliers", "Purchases", "Reports"],
-    staff: ["Dashboard", "Products", "Categories", "Inventory", "Warehouses", "Orders", "Fulfillment"],
+    admin: ["Dashboard", "Products", "Categories", "Inventory", "Stock history", "Warehouses", "Transfers", "Orders", "Fulfillment", "Customers", "Suppliers", "Purchases", "Reports", "Users", "Audit log"],
+    manager: ["Dashboard", "Products", "Categories", "Inventory", "Stock history", "Warehouses", "Transfers", "Orders", "Fulfillment", "Customers", "Suppliers", "Purchases", "Reports"],
+    staff: ["Dashboard", "Products", "Categories", "Inventory", "Stock history", "Warehouses", "Orders", "Fulfillment", "Customers"],
     supplier: ["Purchases"]
 };
 
@@ -50,7 +51,6 @@ for (const role of ROLES) {
             const bar = page.getByRole("navigation", { name: "App" });
             await expect(bar).toBeVisible();
 
-            // A plain CSS selector, because role-based lookups skip the links inside closed drop-down menus
             const shown = (await bar.locator("a").allTextContents()).map((text) => text.trim());
             expect(shown.sort()).toEqual([...NAV_LINKS[role]].sort());
         });
@@ -90,6 +90,7 @@ const READS = [
     ["inventory/transactions", ["admin", "manager", "staff"]],
     ["orders", ["admin", "manager", "staff"]],
     ["orders/fulfillment-queue", ["admin", "manager", "staff"]],
+    ["customers", ["admin", "manager", "staff"]],
     ["reports/dashboard", ["admin", "manager", "staff"]],
     ["reports/inventory", ["admin", "manager"]],
     ["reports/orders", ["admin", "manager"]],

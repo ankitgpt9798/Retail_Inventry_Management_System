@@ -1,7 +1,7 @@
 const { test, expect, request } = require("@playwright/test");
 const { API_URL, FRONTEND_URL, USERS } = require("../config");
 const { apiAs, loginApi, statePath } = require("../helpers/api");
-const { goToNav, loginViaUi, logoutViaUi, makeUser, submitLoginForm, tokenCookie, unique } = require("../helpers/ui");
+const { goToNav, loginViaUi, logoutViaUi, makeUser, submitLoginForm, tokenCookie, unique, cards } = require("../helpers/ui");
 
 // Phase 1a: authentication and the HTTP-only cookie, in a real browser against the real API.
 
@@ -187,7 +187,7 @@ test.describe("sign-up and approval", () => {
         const adminPage = await adminContext.newPage();
         await adminPage.goto("/users");
         await adminPage.getByRole("searchbox", { name: "Search" }).fill(person.email);
-        const row = adminPage.getByRole("row").filter({ hasText: person.email });
+        const row = cards(adminPage).filter({ hasText: person.email });
         await expect(row).toContainText("Pending approval");
         await row.getByRole("button", { name: `Approve ${person.name}` }).click();
         await expect(adminPage.getByRole("status")).toContainText("was approved and can now sign in");

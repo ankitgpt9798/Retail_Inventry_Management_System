@@ -8,13 +8,16 @@ const { statePath } = require("../helpers/api");
 const SIZES = [
     { name: "phone", width: 390, height: 844 },
     { name: "small phone", width: 360, height: 640 },
-    { name: "tablet", width: 768, height: 1024 }
+    { name: "large phone", width: 480, height: 900 },
+    { name: "tablet", width: 768, height: 1024 },
+    { name: "small laptop", width: 1024, height: 768 }
 ];
 
-const PUBLIC_PAGES = ["/", "/features", "/about", "/contact", "/login", "/register", "/no-such-page"];
+// (Features and About are sections of the home page now, not pages of their own)
+const PUBLIC_PAGES = ["/", "/contact", "/login", "/register", "/no-such-page"];
 const APP_PAGES = [
     "/dashboard", "/products", "/categories", "/warehouses", "/inventory", "/inventory/history", "/transfers", "/orders", "/orders/new",
-    "/fulfillment", "/suppliers", "/purchases", "/purchases/new", "/reports", "/users", "/audit-logs", "/notifications", "/profile"
+    "/fulfillment", "/customers", "/suppliers", "/purchases", "/purchases/new", "/reports", "/users", "/audit-logs", "/notifications", "/profile"
 ];
 
 // How far past the screen's right edge the page reaches, and which elements are responsible
@@ -71,49 +74,55 @@ for (const size of SIZES) {
 test.describe("the phone menu", () => {
     test.use({ viewport: { width: 390, height: 844 }, storageState: statePath("admin") });
 
-    test("the top bar collapses into a menu that lists every page the admin may open", async ({ page }) => {
+    const drawer = (page) => page.getByRole("dialog", { name: "Menu" });
+
+    test("the sidebar collapses into a menu that lists every page the admin may open", async ({ page }) => {
         await page.goto("/dashboard");
-        // The desktop links are hidden on a phone; the menu button is there instead
+        // The sidebar is hidden on a phone; the menu button is there instead
         await expect(page.getByRole("navigation", { name: "App" })).toBeHidden();
         await page.getByLabel("Open menu").click();
-        const menu = page.locator(".dropdown-content.menu").first();
-        for (const label of ["Dashboard", "Products", "Categories", "Inventory", "Warehouses", "Transfers", "Orders", "Fulfillment", "Suppliers", "Purchases", "Reports", "Users", "Audit log"]) {
-            await expect(menu.getByRole("link", { name: label, exact: true }), label).toBeVisible();
+        for (const label of [
+            "Dashboard", "Products", "Categories", "Inventory", "Stock history", "Warehouses", "Transfers", "Orders", "Fulfillment",
+            "Customers", "Suppliers", "Purchases", "Reports", "Users", "Audit log"
+        ]) {
+            await expect(drawer(page).getByRole("link", { name: label, exact: true }), label).toBeVisible();
         }
     });
 
     test("choosing a page in the phone menu really navigates there", async ({ page }) => {
         await page.goto("/dashboard");
         await page.getByLabel("Open menu").click();
-        await page.locator(".dropdown-content.menu").first().getByRole("link", { name: "Reports", exact: true }).click();
+        await drawer(page).getByRole("link", { name: "Reports", exact: true }).click();
         await expect(page).toHaveURL(/\/reports$/);
         await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
     });
 
-    // Was FINDING F6: on a phone the menu stayed open, covering the new page, after you chose where to go (the
-    // desktop drop-downs closed themselves; the phone menu did not). Fixed: the phone menu is rebuilt, closed,
-    // after every page change (AppNavbar's PhoneMenu).
+    // Was FINDING F6: on a phone the menu stayed open, covering the new page, after you chose where to go.
+    // The menu is now a drawer that closes after every page change (and with Escape or a tap outside it).
     test("the phone menu closes after you choose a page, and opens again when asked", async ({ page }) => {
         await page.goto("/dashboard");
         await page.getByLabel("Open menu").click();
-        await page.locator(".dropdown-content.menu").first().getByRole("link", { name: "Reports", exact: true }).click();
+        await drawer(page).getByRole("link", { name: "Reports", exact: true }).click();
         await expect(page).toHaveURL(/\/reports$/);
-        await expect(page.locator(".dropdown-content.menu").first(), "the menu should have closed").toBeHidden();
+        await expect(drawer(page), "the menu should have closed").toBeHidden();
 
         // ...and it still works the next time it is needed
         await page.getByLabel("Open menu").click();
-        await expect(page.locator(".dropdown-content.menu").first().getByRole("link", { name: "Orders", exact: true })).toBeVisible();
+        await expect(drawer(page).getByRole("link", { name: "Orders", exact: true })).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(drawer(page)).toBeHidden();
     });
 
-    test("a wide table scrolls inside its own box instead of stretching the page", async ({ page }) => {
+    test("list pages show one card per row, and a wide report table scrolls inside its own box", async ({ page }) => {
         await page.goto("/products");
         await expect(page.getByRole("heading", { level: 1, name: "Products" })).toBeVisible();
-        const table = page.locator("div.overflow-x-auto").first();
-        if (await table.count()) {
-            const scrolls = await table.evaluate((element) => element.scrollWidth > element.clientWidth);
-            const { extra } = await overflowOf(page);
-            expect(extra).toBeLessThanOrEqual(1); // the page itself never scrolls sideways
-            void scrolls; // (the table may or may not need to: what matters is that the page does not)
-        }
+        const boxes = await page.locator("main article").evaluateAll((cards) => cards.slice(0, 2).map((card) => card.getBoundingClientRect()));
+        if (boxes.length === 2) expect(boxes[1].top).toBeGreaterThan(boxes[0].bottom - 1); // stacked, not side by side
+
+        await page.goto("/reports");
+        await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
+        await page.waitForLoadState("networkidle");
+        const { extra } = await overflowOf(page);
+        expect(extra).toBeLessThanOrEqual(1); // the page itself never scrolls sideways
     });
 });

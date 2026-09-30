@@ -1,7 +1,7 @@
 const { test, expect } = require("@playwright/test");
 const { apiAs, createVia, loginApi, statePath } = require("../helpers/api");
 const { asAdmin, makeProduct, makeWarehouse, readAs, stockIn } = require("../helpers/data");
-const { makeUser } = require("../helpers/ui");
+const { makeUser, pagination } = require("../helpers/ui");
 
 // Phase 6a: the notification inbox and the bell. A brand-new manager receives real notifications caused by
 // real actions (purchase requests from another manager), then reads, filters and deletes them in the browser.
@@ -47,16 +47,16 @@ test.describe("the inbox", () => {
         await expect(bell(page, 12)).toBeVisible();
         await page.goto("/notifications");
         await expect(page.getByRole("tab", { name: "Unread (12)" })).toBeVisible();
-        await expect(page.getByText("Page 1 of 2 · 12 items")).toBeVisible();
-        await expect(page.getByRole("listitem")).toHaveCount(10);
+        await expect(pagination(page)).toContainText("Showing 1–10 of 12");
+        await expect(page.locator("main article")).toHaveCount(10);
         await page.getByRole("button", { name: "Next page" }).click();
-        await expect(page.getByText("Page 2 of 2 · 12 items")).toBeVisible();
-        await expect(page.getByRole("listitem")).toHaveCount(2);
+        await expect(pagination(page)).toContainText("Showing 11–12 of 12");
+        await expect(page.locator("main article")).toHaveCount(2);
         await page.getByRole("button", { name: "Previous page" }).click();
 
         // ---- Newest first, and clicking one reads it and opens the order it is about ----
         const newest = purchases.at(-1);
-        const first = page.getByRole("listitem").first();
+        const first = page.locator("main article").first();
         await expect(first).toContainText("Purchase request needs approval");
         await expect(first).toContainText(newest.poNumber);
         await first.getByRole("button").first().click();
@@ -67,11 +67,11 @@ test.describe("the inbox", () => {
         // ---- Filters ----
         await page.goto("/notifications");
         await page.getByRole("tab", { name: "Unread (11)" }).click();
-        await expect(page.getByText("Page 1 of 2 · 11 items")).toBeVisible();
+        await expect(pagination(page)).toContainText("Showing 1–10 of 11");
         await page.getByRole("combobox", { name: "Type" }).selectOption("LOW_STOCK");
         await expect(page.getByRole("main").getByText("You're all caught up.")).toBeVisible();
         await page.getByRole("combobox", { name: "Type" }).selectOption("PURCHASE_UPDATE");
-        await expect(page.getByText("Page 1 of 2 · 11 items")).toBeVisible();
+        await expect(pagination(page)).toContainText("Showing 1–10 of 11");
         await page.getByRole("combobox", { name: "Type" }).selectOption("");
 
         // ---- "Mark read" alone does not open the linked page ----
@@ -184,7 +184,7 @@ test.describe("where notifications lead", () => {
         const context = await browser.newContext({ storageState: statePath("manager2") });
         const page = await context.newPage();
         await page.goto("/notifications");
-        await page.getByRole("listitem").filter({ hasText: purchases[0].poNumber }).getByText("Purchase request needs approval").click();
+        await page.locator("main article").filter({ hasText: purchases[0].poNumber }).getByText("Purchase request needs approval").click();
         await expect(page.getByRole("heading", { level: 1, name: purchases[0].poNumber })).toBeVisible();
         await context.close();
     });
