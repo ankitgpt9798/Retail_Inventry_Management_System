@@ -32,7 +32,7 @@ const PublicFooter = () => {
         <footer className="border-t border-base-300 bg-base-100">
             <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-5 lg:px-8">
                 <div className="space-y-3 lg:col-span-2">
-                    <Logo />
+                    <Logo showSubtitle />
                     <p className="max-w-xs text-sm text-base-content/60">
                         Multi-warehouse inventory, orders and purchasing for growing retail teams.
                     </p>
@@ -55,7 +55,7 @@ const PublicFooter = () => {
                 ))}
             </div>
             <div className="border-t border-base-300 py-5 text-center text-xs text-base-content/50">
-                © {new Date().getFullYear()} RetailFlow. All rights reserved.
+                © {new Date().getFullYear()} StockFlow. All rights reserved.
             </div>
         </footer>
     );

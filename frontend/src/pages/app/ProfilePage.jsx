@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { CalendarDays, Clock, KeyRound, Mail, Pencil, Phone, ShieldCheck, UserCheck, UserRound } from "lucide-react";
 import PageHeader from "../../components/common/PageHeader";
 import TextField from "../../components/common/TextField";
 import ErrorAlert from "../../components/common/ErrorAlert";
@@ -30,6 +31,38 @@ const passwordFormSchema = z
         message: "Passwords do not match",
         path: ["confirmPassword"]
     });
+
+// Initials for the avatar: "Ravi Kumar" → "RK"
+const getInitials = (name = "") => {
+    return name
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join("");
+};
+
+// Small square icon shown next to each card title
+const CardIcon = ({ icon: Icon }) => {
+    return (
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+            <Icon size={18} aria-hidden="true" />
+        </span>
+    );
+};
+
+// One line of the "Account information" list: icon, label, value
+const InfoRow = ({ icon: Icon, label, children }) => {
+    return (
+        <div className="flex items-start gap-3 py-3">
+            <Icon size={16} className="mt-0.5 shrink-0 text-base-content/45" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+                <dt className="text-xs font-medium uppercase tracking-wide text-base-content/55">{label}</dt>
+                <dd className="mt-0.5 break-words text-sm font-medium text-base-content">{children}</dd>
+            </div>
+        </div>
+    );
+};
 
 // ---------- Name and phone ----------
 const ProfileDetailsForm = ({ user }) => {
@@ -64,13 +97,21 @@ const ProfileDetailsForm = ({ user }) => {
     };
 
     return (
-        <form className="card" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form id="profile-details" className="card scroll-mt-24" onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="card-body gap-4">
-                <h2 className="card-title">Your details</h2>
+                <div className="flex items-center gap-3">
+                    <CardIcon icon={UserRound} />
+                    <div>
+                        <h2 className="card-title">Your details</h2>
+                        <p className="text-sm text-base-content/60">Update your name and phone number.</p>
+                    </div>
+                </div>
                 <ErrorAlert message={serverError} />
                 {saved && <Alert tone="success">Profile saved.</Alert>}
-                <TextField label="Full name" error={errors.name} {...register("name")} />
-                <TextField label="Phone" type="tel" error={errors.phone} {...register("phone")} />
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <TextField label="Full name" error={errors.name} {...register("name")} />
+                    <TextField label="Phone" type="tel" error={errors.phone} {...register("phone")} />
+                </div>
                 <div className="form-actions mt-0">
                     <button type="submit" className="btn btn-primary" disabled={isSubmitting || !isDirty}>
                         {isSubmitting ? "Saving…" : "Save changes"}
@@ -115,8 +156,13 @@ const ChangePasswordForm = () => {
     return (
         <form className="card" onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="card-body gap-4">
-                <h2 className="card-title">Change password</h2>
-                <p className="text-sm text-base-content/70">You'll be logged out on all devices afterwards.</p>
+                <div className="flex items-center gap-3">
+                    <CardIcon icon={KeyRound} />
+                    <div>
+                        <h2 className="card-title">Change password</h2>
+                        <p className="text-sm text-base-content/60">You'll be logged out on all devices afterwards.</p>
+                    </div>
+                </div>
                 <ErrorAlert message={serverError} />
                 <TextField label="Current password" type="password" autoComplete="current-password" error={errors.currentPassword} {...register("currentPassword")} />
                 <TextField label="New password" type="password" autoComplete="new-password" hint={PASSWORD_HINT} error={errors.newPassword} {...register("newPassword")} />
@@ -133,23 +179,61 @@ const ChangePasswordForm = () => {
 
 const ProfilePage = () => {
     const user = useSelector((state) => state.auth.user);
+    const isActive = user.status === "ACTIVE";
+
+    // "Edit profile" scrolls to the details form and puts the cursor in the name field
+    const handleEditClick = () => {
+        const form = document.getElementById("profile-details");
+        form?.scrollIntoView({ behavior: "smooth", block: "start" });
+        form?.querySelector("input")?.focus({ preventScroll: true });
+    };
 
     return (
         <>
             <PageHeader title="My profile" description="Your account details and password." />
 
+            {/* Profile summary: avatar, name, email and role */}
+            <section className="card mb-6 overflow-hidden">
+                <div className="h-20 bg-gradient-to-r from-primary to-violet-500 sm:h-24" aria-hidden="true"></div>
+                <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:justify-between sm:px-6 sm:pb-6">
+                    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
+                        <span className="-mt-10 flex size-20 shrink-0 items-center justify-center rounded-full border-4 border-base-100 bg-primary text-2xl font-bold text-primary-content shadow-card sm:-mt-12 sm:size-24 sm:text-3xl">
+                            {getInitials(user.name) || <UserRound size={32} aria-hidden="true" />}
+                        </span>
+                        <div className="min-w-0 sm:pb-1">
+                            <h2 className="truncate text-xl font-bold tracking-tight sm:text-2xl">{user.name}</h2>
+                            <p className="flex min-w-0 items-center gap-1.5 text-sm text-base-content/60">
+                                <Mail size={14} className="shrink-0" aria-hidden="true" />
+                                <span className="truncate">{user.email}</span>
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                <Badge tone="primary">{formatRole(user.role)}</Badge>
+                                <Badge tone={isActive ? "success" : "warning"}>{formatRole(user.status)}</Badge>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" className="btn btn-primary self-start sm:self-auto" onClick={handleEditClick}>
+                        <Pencil size={16} aria-hidden="true" /> Edit profile
+                    </button>
+                </div>
+            </section>
+
             <div className="grid gap-6 *:min-w-0 lg:grid-cols-3">
-                <div className="card">
+                <div className="card self-start">
                     <div className="card-body">
-                        <h2 className="card-title">Account</h2>
-                        <dl className="space-y-3 text-sm">
-                            <div><dt className="text-base-content/60">Email</dt><dd className="font-medium">{user.email}</dd></div>
-                            <div><dt className="text-base-content/60">Role</dt><dd><Badge tone="primary">{formatRole(user.role)}</Badge></dd></div>
-                            <div><dt className="text-base-content/60">Status</dt><dd className="font-medium">{formatRole(user.status)}</dd></div>
-                            <div><dt className="text-base-content/60">Member since</dt><dd>{formatDateTime(user.createdAt)}</dd></div>
-                            <div><dt className="text-base-content/60">Last login</dt><dd>{formatDateTime(user.lastLoginAt)}</dd></div>
+                        <div className="flex items-center gap-3">
+                            <CardIcon icon={ShieldCheck} />
+                            <h2 className="card-title">Account information</h2>
+                        </div>
+                        <dl className="divide-y divide-base-300">
+                            <InfoRow icon={Mail} label="Email">{user.email}</InfoRow>
+                            <InfoRow icon={Phone} label="Phone">{user.phone || <span className="text-base-content/50">Not added</span>}</InfoRow>
+                            <InfoRow icon={ShieldCheck} label="Role">{formatRole(user.role)}</InfoRow>
+                            <InfoRow icon={UserCheck} label="Status">{formatRole(user.status)}</InfoRow>
+                            <InfoRow icon={CalendarDays} label="Member since">{formatDateTime(user.createdAt)}</InfoRow>
+                            <InfoRow icon={Clock} label="Last login">{formatDateTime(user.lastLoginAt)}</InfoRow>
                         </dl>
-                        <p className="mt-2 text-xs text-base-content/60">Your email and role can only be changed by an administrator.</p>
+                        <p className="rounded-lg bg-base-200 px-3 py-2 text-xs text-base-content/60">Your email and role can only be changed by an administrator.</p>
                     </div>
                 </div>
 

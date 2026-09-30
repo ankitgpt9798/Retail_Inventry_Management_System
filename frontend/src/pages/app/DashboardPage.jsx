@@ -91,7 +91,7 @@ const DashboardPage = () => {
     return (
         <>
             <PageHeader
-                title={`${greeting()}, ${user.name.split(" ")[0]}`}
+                title={`${greeting()}, ${user?.name?.trim() || "Admin"} 👋`}
                 description="Here's how your stock, orders and purchasing look right now."
             />
 

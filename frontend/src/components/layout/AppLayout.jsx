@@ -22,7 +22,7 @@ const AppLayout = () => {
                 </main>
                 <footer className="border-t border-base-300 bg-base-100">
                     <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-xs text-base-content/55 sm:flex-row sm:justify-between sm:px-6 lg:px-8">
-                        <span>© {new Date().getFullYear()} RetailFlow</span>
+                        <span>© {new Date().getFullYear()} StockFlow</span>
                         <span className="flex gap-4">
                             <Link to="/" className="hover:text-base-content">Public website</Link>
                             <Link to="/contact" className="hover:text-base-content">Help &amp; contact</Link>

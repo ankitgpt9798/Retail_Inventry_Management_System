@@ -49,11 +49,11 @@ describe("DashboardPage", () => {
         expect(screen.getByTestId("kpi-totalCustomers")).toHaveTextContent("5");
     });
 
-    test("greets the user by first name", async () => {
+    test("greets the user by name", async () => {
         api.get.mockResolvedValue(dashboardResponse);
         renderWithProviders(<DashboardPage />, { preloadedState: authState("STAFF") });
 
-        expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(/, Ravi$/);
+        expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(/, Ravi Kumar 👋$/);
     });
 
     test("an error shows a message with 'Try again', which reloads", async () => {

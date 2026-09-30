@@ -66,7 +66,7 @@ const SectionHeading = ({ eyebrow, title, text, center = false }) => (
 );
 
 const DashboardPreview = () => (
-    <div className="rounded-2xl border border-base-300 bg-base-100 p-3 shadow-raised sm:p-4" role="img" aria-label="Preview of the RetailFlow dashboard">
+    <div className="rounded-2xl border border-base-300 bg-base-100 p-3 shadow-raised sm:p-4" role="img" aria-label="Preview of the StockFlow dashboard">
         <div className="flex items-center gap-1.5 pb-3" aria-hidden="true">
             <span className="size-2.5 rounded-full bg-error/70"></span>
             <span className="size-2.5 rounded-full bg-warning/70"></span>
@@ -115,7 +115,7 @@ const HomePage = () => {
                             Manage Your Inventory <span className="text-primary">Smarter</span>
                         </h1>
                         <p className="mt-5 max-w-xl text-lg text-base-content/70">
-                            RetailFlow keeps products, stock, warehouses, orders and suppliers in one place — so your team always
+                            StockFlow keeps products, stock, warehouses, orders and suppliers in one place — so your team always
                             knows what's on the shelf, what's promised and what's on the way.
                         </p>
                         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
