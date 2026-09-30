@@ -10,6 +10,7 @@
     "test": "jest",
     "db:sync": "node src/utils/syncIndexes.js",
     "seed:admin": "node src/utils/seedAdmin.js",
+    "seed": "node src/utils/seedDemo.js",
     "db:fix-notification-links": "node src/utils/fixNotificationLinks.js"
   },
   "jest": {
