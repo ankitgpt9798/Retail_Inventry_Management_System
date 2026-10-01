@@ -1,0 +1,24 @@
+$kind: http-request
+description: Bad input gets **422** with a list of field errors, and nothing is created.
+url: "{{baseUrl}}/products"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "X",
+      "sku": "bad sku!",
+      "costPrice": -5
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 422", () => pm.response.to.have.status(422));
+      const body = pm.response.json();
+      pm.test("error code is VALIDATION_ERROR", () => pm.expect(body.error).to.equal("VALIDATION_ERROR"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+      pm.test("field errors are listed", () => { pm.expect(body.errors).to.be.an('array').that.is.not.empty; pm.expect(body.errors[0]).to.have.keys('field', 'message'); });
+    language: text/javascript
+order: 9000

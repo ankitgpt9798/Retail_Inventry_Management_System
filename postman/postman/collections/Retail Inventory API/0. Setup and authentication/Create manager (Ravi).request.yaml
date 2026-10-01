@@ -1,0 +1,29 @@
+$kind: http-request
+description: "**ADMIN only.** Creates an inventory manager."
+url: "{{baseUrl}}/users"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Ravi Kumar",
+      "email": "{{managerEmail}}",
+      "password": "{{managerPassword}}",
+      "role": "INVENTORY_MANAGER",
+      "phone": "9000000001"
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.collectionVariables.set("managerEmail", `manager-${pm.collectionVariables.get("runId")}@postman.test`);
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("role and status", () => { pm.expect(body.data.user).to.include({ role: "INVENTORY_MANAGER", status: "ACTIVE" }); });
+      { const value = body.data.user._id; if (value !== undefined && value !== null) pm.collectionVariables.set("managerId", String(value)); }
+    language: text/javascript
+order: 4000

@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/categories"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Electronics {{runId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 409", () => pm.response.to.have.status(409));
+      const body = pm.response.json();
+      pm.test("error code is CATEGORY_EXISTS", () => pm.expect(body.error).to.equal("CATEGORY_EXISTS"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+    language: text/javascript
+order: 3000

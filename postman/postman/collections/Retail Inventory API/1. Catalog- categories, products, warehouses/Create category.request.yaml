@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}/categories"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Electronics {{runId}}",
+      "description": "Gadgets and accessories"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      { const value = body.data.category._id; if (value !== undefined && value !== null) pm.collectionVariables.set("categoryId", String(value)); }
+    language: text/javascript
+order: 2000

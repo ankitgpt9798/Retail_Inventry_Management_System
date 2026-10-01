@@ -1,0 +1,13 @@
+$kind: http-request
+name: "An id that isn't an id: 400"
+url: "{{baseUrl}}/products/not-an-id"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 400", () => pm.response.to.have.status(400));
+      const body = pm.response.json();
+      pm.test("error code is INVALID_ID", () => pm.expect(body.error).to.equal("INVALID_ID"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+    language: text/javascript
+order: 5000

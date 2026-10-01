@@ -1,0 +1,4 @@
+$kind: collection
+name: "2. Inventory: stock in and out"
+description: Run as an **inventory manager**. Staff can view stock; only admins and managers can change it. Stock quantities only ever change through these calls (and transfers, purchases and orders).
+order: 3000

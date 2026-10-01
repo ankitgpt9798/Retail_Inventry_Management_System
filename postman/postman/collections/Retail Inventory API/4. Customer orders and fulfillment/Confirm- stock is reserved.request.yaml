@@ -1,0 +1,13 @@
+$kind: http-request
+name: "Confirm: stock is reserved"
+url: "{{baseUrl}}/orders/{{orderId}}/confirm"
+method: PUT
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("CONFIRMED", () => { pm.expect(body.data.order.status).to.equal('CONFIRMED'); });
+    language: text/javascript
+order: 6000

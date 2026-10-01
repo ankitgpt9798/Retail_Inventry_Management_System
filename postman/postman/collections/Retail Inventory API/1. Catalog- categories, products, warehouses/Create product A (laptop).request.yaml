@@ -1,0 +1,31 @@
+$kind: http-request
+description: "**ADMIN only.** SKU is stored in UPPER CASE. Prices are rounded to 2 decimals."
+url: "{{baseUrl}}/products"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Laptop Pro {{runId}}",
+      "sku": "lap-{{runId}}",
+      "category": "{{categoryId}}",
+      "brand": "Acme",
+      "costPrice": 700,
+      "sellingPrice": 1000,
+      "taxRate": 18,
+      "reorderLevel": 10,
+      "barcode": "BAR-A-{{runId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("SKU upper-cased", () => { pm.expect(body.data.product.sku).to.equal(body.data.product.sku.toUpperCase()); });
+      { const value = body.data.product._id; if (value !== undefined && value !== null) pm.collectionVariables.set("productId", String(value)); }
+      { const value = body.data.product.sku; if (value !== undefined && value !== null) pm.collectionVariables.set("productSku", String(value)); }
+    language: text/javascript
+order: 6000

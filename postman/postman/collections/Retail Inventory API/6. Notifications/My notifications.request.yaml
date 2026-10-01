@@ -1,0 +1,16 @@
+$kind: http-request
+description: "Filters: `isRead`, `type`, `page`, `limit`. Also returns `unreadCount`."
+url: "{{baseUrl}}/notifications?limit=20"
+method: GET
+queryParams:
+  limit: "20"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("there are some, newest first", () => { pm.expect(body.data.notifications.length).to.be.above(0); pm.expect(body.data.unreadCount).to.be.a('number'); });
+      { const value = body.data.notifications[0] && body.data.notifications[0]._id; if (value !== undefined && value !== null) pm.collectionVariables.set("notificationId", String(value)); }
+    language: text/javascript
+order: 2000

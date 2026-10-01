@@ -1,0 +1,29 @@
+$kind: http-request
+description: "**ADMIN only.** A SUPPLIER user must belong to a supplier company (`supplier`)."
+url: "{{baseUrl}}/users"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Suresh Patel",
+      "email": "{{supplierEmail}}",
+      "password": "{{supplierPassword}}",
+      "role": "SUPPLIER",
+      "supplier": "{{supplierId}}"
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.collectionVariables.set("supplierEmail", `supplier-${pm.collectionVariables.get("runId")}@postman.test`);
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("linked to the company", () => { pm.expect(body.data.user.supplier).to.be.ok; });
+      { const value = body.data.user._id; if (value !== undefined && value !== null) pm.collectionVariables.set("supplierUserId", String(value)); }
+    language: text/javascript
+order: 8000

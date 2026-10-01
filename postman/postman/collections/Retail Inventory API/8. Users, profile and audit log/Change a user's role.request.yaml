@@ -1,0 +1,21 @@
+$kind: http-request
+description: The change takes effect on the person's very next request.
+url: "{{baseUrl}}/users/{{staffId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "role": "INVENTORY_MANAGER"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("promoted", () => { pm.expect(body.data.user.role).to.equal('INVENTORY_MANAGER'); });
+    language: text/javascript
+order: 4000

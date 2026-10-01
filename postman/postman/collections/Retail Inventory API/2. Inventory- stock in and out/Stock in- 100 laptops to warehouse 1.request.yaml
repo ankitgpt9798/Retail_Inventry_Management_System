@@ -1,0 +1,26 @@
+$kind: http-request
+name: "Stock in: 100 laptops to warehouse 1"
+description: Adds stock. Refused if the warehouse or product is inactive, or the warehouse would go over capacity.
+url: "{{baseUrl}}/inventory/stock-in"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "product": "{{productId}}",
+      "warehouse": "{{warehouseId}}",
+      "quantity": 100,
+      "note": "First delivery"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("quantities", () => { pm.expect(body.data.inventory).to.include({ quantity: 100, reservedQuantity: 0, availableQuantity: 100 }); });
+      { const value = body.data.inventory._id; if (value !== undefined && value !== null) pm.collectionVariables.set("inventoryId", String(value)); }
+    language: text/javascript
+order: 2000

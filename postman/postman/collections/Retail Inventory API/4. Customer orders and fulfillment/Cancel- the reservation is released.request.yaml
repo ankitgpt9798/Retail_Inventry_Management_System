@@ -1,0 +1,22 @@
+$kind: http-request
+name: "Cancel: the reservation is released"
+description: DELETE cancels (the record is kept). The optional `reason` goes in the body. Allowed until the order ships.
+url: "{{baseUrl}}/orders/{{order2Id}}"
+method: DELETE
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "reason": "Customer changed mind"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("CANCELLED", () => { pm.expect(body.data.order.status).to.equal('CANCELLED'); });
+    language: text/javascript
+order: 16000

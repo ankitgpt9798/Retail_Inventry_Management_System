@@ -1,0 +1,28 @@
+$kind: http-request
+name: "Request transfer: 30 laptops, warehouse 1 to 2"
+description: "**ADMIN or INVENTORY_MANAGER.** Nothing moves yet."
+url: "{{baseUrl}}/transfers"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "product": "{{productId}}",
+      "fromWarehouse": "{{warehouseId}}",
+      "toWarehouse": "{{warehouse2Id}}",
+      "quantity": 30,
+      "notes": "Restock Noida"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("REQUESTED with a TRF number", () => { pm.expect(body.data.transfer.status).to.equal('REQUESTED'); pm.expect(body.data.transfer.transferNumber).to.match(/^TRF-\d{6}$/); });
+      { const value = body.data.transfer._id; if (value !== undefined && value !== null) pm.collectionVariables.set("transferId", String(value)); }
+      { const value = body.data.transfer.transferNumber; if (value !== undefined && value !== null) pm.collectionVariables.set("transferNumber", String(value)); }
+    language: text/javascript
+order: 2000

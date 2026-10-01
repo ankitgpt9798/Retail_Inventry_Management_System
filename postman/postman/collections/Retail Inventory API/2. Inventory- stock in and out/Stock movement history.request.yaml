@@ -1,0 +1,16 @@
+$kind: http-request
+description: "Every change of stock, newest first. Filters: `product`, `warehouse`, `type` (STOCK_IN, STOCK_OUT, TRANSFER_IN, TRANSFER_OUT, ADJUSTMENT), `from`, `to`, `page`, `limit`."
+url: "{{baseUrl}}/inventory/transactions?warehouse={{warehouseId}}&type=STOCK_OUT"
+method: GET
+queryParams:
+  warehouse: "{{warehouseId}}"
+  type: STOCK_OUT
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("the manual removal is there", () => { pm.expect(body.data.transactions[0]).to.include({ type: 'STOCK_OUT', quantity: 10 }); });
+    language: text/javascript
+order: 13000

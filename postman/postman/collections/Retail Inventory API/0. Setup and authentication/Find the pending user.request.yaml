@@ -1,0 +1,17 @@
+$kind: http-request
+description: "**ADMIN only.** Searches users. Saves the pending user's id."
+url: "{{baseUrl}}/users?search={{pendingEmail}}&status=PENDING"
+method: GET
+queryParams:
+  search: "{{pendingEmail}}"
+  status: PENDING
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("found exactly the pending user", () => { pm.expect(body.data.users).to.have.length(1); });
+      { const value = body.data.users[0] && body.data.users[0]._id; if (value !== undefined && value !== null) pm.collectionVariables.set("pendingId", String(value)); }
+    language: text/javascript
+order: 10000

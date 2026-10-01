@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/categories/{{categoryId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "description": "Gadgets, accessories and cables"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("changed", () => { pm.expect(body.data.category.description).to.include("cables"); });
+    language: text/javascript
+order: 5000

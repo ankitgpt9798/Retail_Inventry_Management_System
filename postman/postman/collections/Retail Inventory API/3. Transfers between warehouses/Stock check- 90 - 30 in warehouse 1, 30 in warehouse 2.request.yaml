@@ -1,0 +1,13 @@
+$kind: http-request
+name: "Stock check: 90 - 30 in warehouse 1, 30 in warehouse 2"
+url: "{{baseUrl}}/inventory/product/{{productId}}"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("nothing lost in transit", () => { pm.expect(body.data.totals.quantity).to.equal(90); });
+    language: text/javascript
+order: 17000

@@ -1,0 +1,27 @@
+$kind: http-request
+description: "**ADMIN only.** A second manager: approvals must come from a DIFFERENT person than the requester."
+url: "{{baseUrl}}/users"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Neha Singh",
+      "email": "{{manager2Email}}",
+      "password": "{{manager2Password}}",
+      "role": "INVENTORY_MANAGER"
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.collectionVariables.set("manager2Email", `manager2-${pm.collectionVariables.get("runId")}@postman.test`);
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      { const value = body.data.user._id; if (value !== undefined && value !== null) pm.collectionVariables.set("manager2Id", String(value)); }
+    language: text/javascript
+order: 5000

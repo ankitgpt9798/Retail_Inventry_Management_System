@@ -1,0 +1,26 @@
+$kind: http-request
+name: Login as manager
+description: Logs in as **manager**. The server sets an HTTP-only `token` cookie; Postman keeps it and sends it on every request that follows, so from here on you ARE manager.
+url: "{{baseUrl}}/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "{{managerEmail}}",
+      "password": "{{managerPassword}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("user has the expected role", () => { pm.expect(body.data.user.role).to.equal("INVENTORY_MANAGER"); });
+      pm.test("the login cookie was set", () => { pm.expect(pm.cookies.has("token")).to.equal(true); });
+      pm.test("the password is never sent back", () => { pm.expect(JSON.stringify(body)).to.not.include("password"); });
+      { const value = body.data.user._id; if (value !== undefined && value !== null) pm.collectionVariables.set("managerId", String(value)); }
+    language: text/javascript
+order: 9000

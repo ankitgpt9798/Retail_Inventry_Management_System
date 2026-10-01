@@ -1,0 +1,4 @@
+$kind: collection
+name: "1. Catalog: categories, products, warehouses"
+description: Run as the **admin**. Staff and managers can only VIEW the catalog; managers may also manage warehouses.
+order: 2000

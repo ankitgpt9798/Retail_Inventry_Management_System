@@ -1,0 +1,23 @@
+$kind: http-request
+description: Any logged-in user. Only name and phone can be changed here (email and role only by an admin).
+url: "{{baseUrl}}/users/profile"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Sunita R. Rao",
+      "phone": "9111111111",
+      "role": "ADMIN"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("name and phone changed, the smuggled role ignored", () => { pm.expect(body.data.user).to.include({ name: 'Sunita R. Rao', role: 'STAFF' }); });
+    language: text/javascript
+order: 16000

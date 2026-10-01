@@ -1,0 +1,13 @@
+$kind: http-request
+name: "Not logged in: 401"
+url: "{{baseUrl}}/products"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 401", () => pm.response.to.have.status(401));
+      const body = pm.response.json();
+      pm.test("error code is NOT_AUTHENTICATED", () => pm.expect(body.error).to.equal("NOT_AUTHENTICATED"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+    language: text/javascript
+order: 1000

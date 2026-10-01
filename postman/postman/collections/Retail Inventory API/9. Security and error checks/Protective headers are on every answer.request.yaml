@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/health"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("no software announcement", () => { pm.expect(pm.response.headers.has('X-Powered-By')).to.equal(false); });
+      pm.test("protective headers", () => { pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.equal('nosniff'); pm.expect(pm.response.headers.get('Cache-Control')).to.equal('no-store'); });
+    language: text/javascript
+order: 8000

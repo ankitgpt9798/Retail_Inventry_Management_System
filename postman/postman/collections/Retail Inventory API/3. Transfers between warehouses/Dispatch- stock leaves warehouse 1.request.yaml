@@ -1,0 +1,13 @@
+$kind: http-request
+name: "Dispatch: stock leaves warehouse 1"
+url: "{{baseUrl}}/transfers/{{transferId}}/dispatch"
+method: PUT
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("DISPATCHED", () => { pm.expect(body.data.transfer.status).to.equal('DISPATCHED'); });
+    language: text/javascript
+order: 10000

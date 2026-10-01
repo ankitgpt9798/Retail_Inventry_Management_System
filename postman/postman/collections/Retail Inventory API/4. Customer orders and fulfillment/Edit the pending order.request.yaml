@@ -1,0 +1,30 @@
+$kind: http-request
+description: Only PENDING orders can be edited. Totals are recalculated.
+url: "{{baseUrl}}/orders/{{orderId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "product": "{{productId}}",
+          "quantity": 2
+        },
+        {
+          "product": "{{productBId}}",
+          "quantity": 4
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("recalculated: 2 x 1100 + 4 x 500", () => { pm.expect(body.data.order.subtotal).to.equal(4200); });
+    language: text/javascript
+order: 5000

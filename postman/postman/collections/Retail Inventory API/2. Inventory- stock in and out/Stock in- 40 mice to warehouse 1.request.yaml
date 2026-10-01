@@ -1,0 +1,23 @@
+$kind: http-request
+name: "Stock in: 40 mice to warehouse 1"
+url: "{{baseUrl}}/inventory/stock-in"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "product": "{{productBId}}",
+      "warehouse": "{{warehouseId}}",
+      "quantity": 40
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      { const value = body.data.inventory._id; if (value !== undefined && value !== null) pm.collectionVariables.set("inventoryBId", String(value)); }
+    language: text/javascript
+order: 3000

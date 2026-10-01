@@ -1,0 +1,37 @@
+$kind: http-request
+description: "**ADMIN or INVENTORY_MANAGER.** `unitCost` is optional (defaults to the product's cost price). `submit: true` would submit it for approval straight away."
+url: "{{baseUrl}}/purchases"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "supplier": "{{supplierId}}",
+      "warehouse": "{{warehouse2Id}}",
+      "items": [
+        {
+          "product": "{{productId}}",
+          "quantityOrdered": 20,
+          "unitCost": 650
+        },
+        {
+          "product": "{{productBId}}",
+          "quantityOrdered": 10
+        }
+      ],
+      "expectedDeliveryDate": "2030-01-15",
+      "notes": "First order of the year"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("DRAFT, total 20 x 650 + 10 x 150 (product cost)", () => { pm.expect(body.data.purchase).to.include({ status: 'DRAFT', totalAmount: 14500 }); });
+      { const value = body.data.purchase._id; if (value !== undefined && value !== null) pm.collectionVariables.set("purchaseId", String(value)); }
+      { const value = body.data.purchase.poNumber; if (value !== undefined && value !== null) pm.collectionVariables.set("poNumber", String(value)); }
+    language: text/javascript
+order: 2000

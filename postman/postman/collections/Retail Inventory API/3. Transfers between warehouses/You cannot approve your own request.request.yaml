@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/transfers/{{transferId}}/approve"
+method: PUT
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 403", () => pm.response.to.have.status(403));
+      const body = pm.response.json();
+      pm.test("error code is SELF_APPROVAL_NOT_ALLOWED", () => pm.expect(body.error).to.equal("SELF_APPROVAL_NOT_ALLOWED"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+    language: text/javascript
+order: 7000

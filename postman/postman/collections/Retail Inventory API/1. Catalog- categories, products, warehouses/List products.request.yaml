@@ -1,0 +1,17 @@
+$kind: http-request
+description: "Filters: `search` (name, SKU, brand), `category`, `status`, `brand`, `minPrice`, `maxPrice`, `sort` (newest, oldest, name, price_low, price_high), `page`, `limit`."
+url: "{{baseUrl}}/products?search={{runId}}&sort=price_high&limit=10"
+method: GET
+queryParams:
+  search: "{{runId}}"
+  sort: price_high
+  limit: "10"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("most expensive first", () => { pm.expect(body.data.products[0].sellingPrice).to.be.at.least(body.data.products[1].sellingPrice); });
+    language: text/javascript
+order: 10000

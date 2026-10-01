@@ -1,0 +1,15 @@
+$kind: http-request
+description: "Filters: `from`, `to`, `supplier`."
+url: "{{baseUrl}}/reports/purchases?supplier={{supplierId}}"
+method: GET
+queryParams:
+  supplier: "{{supplierId}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("summary", () => { pm.expect(body.data.summary).to.include.keys('totalPurchaseOrders','openPurchaseOrders','orderedValue','receivedValue'); });
+    language: text/javascript
+order: 7000

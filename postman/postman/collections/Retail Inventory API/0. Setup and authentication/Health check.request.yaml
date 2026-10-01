@@ -1,0 +1,24 @@
+$kind: http-request
+name: Health check
+description: "Public. Is the server up? Also starts a NEW RUN: a fresh `runId` is generated, used to make emails, SKUs and codes unique so the collection can be run again and again."
+url: "{{baseUrl}}/health"
+method: GET
+scripts:
+  - type: beforeRequest
+    code: |-
+      const runId = Date.now().toString(36);
+      pm.collectionVariables.set("runId", runId);
+      for (const key of ["managerEmail","manager2Email","staffEmail","supplierEmail","categoryId","productId","productBId","warehouseId","warehouse2Id","supplierId"]) pm.collectionVariables.unset(key);
+      pm.collectionVariables.set("managerPassword", "Manager123");
+      pm.collectionVariables.set("manager2Password", "Manager456");
+      pm.collectionVariables.set("staffPassword", "Staff1234");
+      pm.collectionVariables.set("supplierPassword", "Supplier123");
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("the server reports success", () => { pm.expect(body.success).to.equal(true); });
+    language: text/javascript
+order: 1000

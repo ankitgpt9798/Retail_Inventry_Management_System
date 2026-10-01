@@ -1,0 +1,26 @@
+$kind: http-request
+description: "**ADMIN or INVENTORY_MANAGER.**"
+url: "{{baseUrl}}/suppliers"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Acme Electronics {{runId}}",
+      "email": "sales-{{runId}}@acme.test",
+      "contactPerson": "Suresh Patel",
+      "phone": "9876543210",
+      "city": "Delhi",
+      "address": "12 MG Road"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      { const value = body.data.supplier._id; if (value !== undefined && value !== null) pm.collectionVariables.set("supplierId", String(value)); }
+    language: text/javascript
+order: 7000

@@ -1,0 +1,15 @@
+$kind: http-request
+description: "Filters: `status`, `product`, `warehouse`, `fromWarehouse`, `toWarehouse`, `search` (transfer number), `page`, `limit`."
+url: "{{baseUrl}}/transfers?warehouse={{warehouseId}}"
+method: GET
+queryParams:
+  warehouse: "{{warehouseId}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("all three, newest first", () => { pm.expect(body.data.transfers).to.have.length(3); });
+    language: text/javascript
+order: 15000

@@ -1,0 +1,26 @@
+$kind: http-request
+description: "**ADMIN or INVENTORY_MANAGER.** Records what arrived; stock is added to the warehouse. Can be done in parts."
+url: "{{baseUrl}}/purchases/{{purchaseId}}/receive"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "product": "{{productId}}",
+          "quantity": 12
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("PARTIALLY_RECEIVED", () => { pm.expect(body.data.purchase.status).to.equal('PARTIALLY_RECEIVED'); });
+    language: text/javascript
+order: 18000

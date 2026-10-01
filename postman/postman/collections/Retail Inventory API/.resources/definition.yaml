@@ -1,0 +1,21 @@
+$kind: collection
+name: Retail Inventory API
+description: |-
+  The whole Retail Inventory Management System API, as one runnable story.
+
+  **Start here:** import this collection and the environment, make sure the backend is running (`npm run dev` in `backend/`) and that the admin from `backend/.env` exists (`npm run seed:admin`), put that admin's email and password in the environment (`adminEmail`, `adminPassword`), then run the collection top to bottom (Collection Runner) or click through the requests in order.
+
+  **Who you are:** the API uses an HTTP-only login cookie. Postman keeps it automatically, and each *Login as ...* request switches your role. Requests are grouped so each folder runs as the right role.
+
+  **Ids:** test scripts save the ids they need (`productId`, `orderId`, `purchaseId` ...) into collection variables, so later requests work without copy-and-paste.
+
+  **Every response** has the same shape: `{ success, message, data }` on success, `{ success: false, message, error }` on failure (validation errors also carry `errors: [{ field, message }]`). Lists carry `data.pagination = { page, limit, total, totalPages }`; the largest page is 100.
+
+  **Roles:** ADMIN, INVENTORY_MANAGER, STAFF, SUPPLIER. Each request says who may call it.
+variables:
+  baseUrl: http://localhost:3000/api
+  runId: ""
+  managerPassword: ""
+  manager2Password: ""
+  staffPassword: ""
+  supplierPassword: ""

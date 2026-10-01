@@ -1,0 +1,3 @@
+$kind: collection
+description: The dashboard is visible to admin, manager and staff; the eight detailed reports to admin and manager. Dates are `YYYY-MM-DD` days; leave them out for the last 6 months.
+order: 8000

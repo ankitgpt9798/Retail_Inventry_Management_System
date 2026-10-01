@@ -1,0 +1,8 @@
+name: 'Retail Inventory: local'
+values:
+  - key: baseUrl
+    value: 'http://localhost:3000/api'
+  - key: adminEmail
+    value: admin@retail.local
+  - key: adminPassword
+    value: change-this-password

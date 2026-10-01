@@ -1,0 +1,14 @@
+$kind: http-request
+name: "Dashboard: 10 KPIs and 6 chart series"
+url: "{{baseUrl}}/reports/dashboard"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("all KPIs", () => { pm.expect(body.data.kpis).to.include.keys('totalProducts','totalCategories','totalWarehouses','totalSuppliers','totalInventory','lowStockProducts','totalOrders','pendingOrders','completedOrders','pendingPurchases'); });
+      pm.test("all charts", () => { pm.expect(body.data.charts).to.include.keys('ordersByMonth','inventoryByWarehouse','topProducts','stockMovement','purchaseTrends','orderStatusDistribution'); });
+    language: text/javascript
+order: 2000

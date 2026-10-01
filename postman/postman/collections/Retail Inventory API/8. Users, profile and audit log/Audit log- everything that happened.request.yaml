@@ -1,0 +1,20 @@
+$kind: http-request
+name: "Audit log: everything that happened"
+description: "Filters: `user`, `action`, `entityType`, `entityId`, `from`, `to`, `sort` (newest/oldest), `page`, `limit`. Read-only: records can never be edited or deleted."
+url: "{{baseUrl}}/audit-logs?entityType=Order&entityId={{orderId}}&sort=oldest"
+method: GET
+queryParams:
+  entityType: Order
+  entityId: "{{orderId}}"
+  sort: oldest
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("the order's whole story", () => { pm.expect(body.data.auditLogs.map(a => a.action)).to.include.members(['ORDER_CREATED','ORDER_CONFIRMED','ORDER_SHIPPED']); });
+      pm.test("who did it", () => { pm.expect(body.data.auditLogs[0].user).to.include.keys('name','email'); });
+      { const value = body.data.auditLogs[0] && body.data.auditLogs[0]._id; if (value !== undefined && value !== null) pm.collectionVariables.set("auditLogId", String(value)); }
+    language: text/javascript
+order: 11000

@@ -1,0 +1,14 @@
+$kind: http-request
+name: "Supplier: my purchase orders"
+description: "**SUPPLIER.** Sees ONLY orders of their own company that were sent to them, whatever filters they send."
+url: "{{baseUrl}}/purchases"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("exactly the one sent order", () => { pm.expect(body.data.purchases).to.have.length(1); pm.expect(body.data.purchases[0].poNumber).to.equal(pm.collectionVariables.get('poNumber')); });
+    language: text/javascript
+order: 11000

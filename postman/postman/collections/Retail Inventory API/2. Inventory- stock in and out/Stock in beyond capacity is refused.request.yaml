@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}/inventory/stock-in"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "product": "{{productId}}",
+      "warehouse": "{{warehouse2Id}}",
+      "quantity": 999999
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 409", () => pm.response.to.have.status(409));
+      const body = pm.response.json();
+      pm.test("error code is CAPACITY_EXCEEDED", () => pm.expect(body.error).to.equal("CAPACITY_EXCEEDED"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+      pm.test("says how much will fit", () => { pm.expect(body.message).to.include('will fit'); });
+    language: text/javascript
+order: 7000

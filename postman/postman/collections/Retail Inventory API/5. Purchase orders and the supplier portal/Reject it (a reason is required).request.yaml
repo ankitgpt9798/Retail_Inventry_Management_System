@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/purchases/{{purchase2Id}}/reject"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "reason": "Over budget this quarter"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("REJECTED", () => { pm.expect(body.data.purchase).to.include({ status: 'REJECTED', rejectionReason: 'Over budget this quarter' }); });
+    language: text/javascript
+order: 24000

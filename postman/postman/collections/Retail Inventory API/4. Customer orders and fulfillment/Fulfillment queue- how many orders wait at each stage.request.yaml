@@ -1,0 +1,13 @@
+$kind: http-request
+name: "Fulfillment queue: how many orders wait at each stage"
+url: "{{baseUrl}}/orders/fulfillment-queue"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("all stages counted", () => { pm.expect(body.data.queue).to.have.keys('CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED'); });
+    language: text/javascript
+order: 19000

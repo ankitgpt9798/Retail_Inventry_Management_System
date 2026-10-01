@@ -1,0 +1,3 @@
+$kind: collection
+description: Not logged in from here on. Every protected endpoint answers 401; bad input and unknown addresses get clean errors, never stack traces.
+order: 10000

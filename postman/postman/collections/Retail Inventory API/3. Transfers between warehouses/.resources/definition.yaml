@@ -1,0 +1,3 @@
+$kind: collection
+description: Requested by one manager, approved by ANOTHER (nobody approves their own request). Stock moves out at dispatch and in at receive.
+order: 4000

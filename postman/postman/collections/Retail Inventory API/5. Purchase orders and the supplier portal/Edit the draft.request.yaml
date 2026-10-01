@@ -1,0 +1,31 @@
+$kind: http-request
+url: "{{baseUrl}}/purchases/{{purchaseId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "product": "{{productId}}",
+          "quantityOrdered": 20,
+          "unitCost": 650
+        },
+        {
+          "product": "{{productBId}}",
+          "quantityOrdered": 10,
+          "unitCost": 140
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("recalculated", () => { pm.expect(body.data.purchase.totalAmount).to.equal(14400); });
+    language: text/javascript
+order: 4000

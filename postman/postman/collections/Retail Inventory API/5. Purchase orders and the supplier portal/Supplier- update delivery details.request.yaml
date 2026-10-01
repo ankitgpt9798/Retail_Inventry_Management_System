@@ -1,0 +1,21 @@
+$kind: http-request
+name: "Supplier: update delivery details"
+url: "{{baseUrl}}/purchases/{{purchaseId}}/delivery"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "deliveryNote": "Split into two trucks"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("note saved", () => { pm.expect(body.data.purchase.deliveryNote).to.equal('Split into two trucks'); });
+    language: text/javascript
+order: 15000

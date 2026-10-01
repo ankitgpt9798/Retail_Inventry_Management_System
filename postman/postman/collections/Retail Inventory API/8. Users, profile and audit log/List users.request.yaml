@@ -1,0 +1,16 @@
+$kind: http-request
+description: "Filters: `search`, `role`, `status`, `page`, `limit`."
+url: "{{baseUrl}}/users?search={{runId}}"
+method: GET
+queryParams:
+  search: "{{runId}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("the users created in this run", () => { pm.expect(body.data.users.length).to.be.at.least(5); });
+      pm.test("no password hashes", () => { pm.expect(JSON.stringify(body)).to.not.include('$2'); });
+    language: text/javascript
+order: 2000

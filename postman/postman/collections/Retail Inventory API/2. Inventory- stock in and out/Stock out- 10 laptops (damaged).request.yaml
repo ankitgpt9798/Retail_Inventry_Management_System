@@ -1,0 +1,24 @@
+$kind: http-request
+name: "Stock out: 10 laptops (damaged)"
+url: "{{baseUrl}}/inventory/stock-out"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "product": "{{productId}}",
+      "warehouse": "{{warehouseId}}",
+      "quantity": 10,
+      "note": "Damaged in transit"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("100 - 10", () => { pm.expect(body.data.inventory.quantity).to.equal(90); });
+    language: text/javascript
+order: 5000

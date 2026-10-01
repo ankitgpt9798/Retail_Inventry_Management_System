@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}/transfers"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "product": "{{productId}}",
+      "fromWarehouse": "{{warehouseId}}",
+      "toWarehouse": "{{warehouse2Id}}",
+      "quantity": 5000
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 400", () => pm.response.to.have.status(400));
+      const body = pm.response.json();
+      pm.test("error code is INSUFFICIENT_STOCK", () => pm.expect(body.error).to.equal("INSUFFICIENT_STOCK"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+    language: text/javascript
+order: 6000

@@ -1,0 +1,13 @@
+# Use this workspace to collaborate
+workspace:
+  id: 287fe16d-a852-4b20-8031-07e809501d59
+
+localResources:
+  collections:
+    - ../RetailInventory.postman_collection.json
+  environments:
+    - ../RetailInventory.postman_environment.json
+
+cloudResources:
+  collections:
+    ../postman/collections/Retail Inventory API: 00316e95-7436-4a9e-897d-60d29ede9d21

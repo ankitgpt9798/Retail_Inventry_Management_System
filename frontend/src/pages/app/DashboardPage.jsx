@@ -91,7 +91,7 @@ const DashboardPage = () => {
     return (
         <>
             <PageHeader
-                title={`${greeting()}, ${user?.name?.trim() || "Admin"} 👋`}
+                title={`${greeting()}, ${user?.name?.trim() || "User"} 👋`}
                 description="Here's how your stock, orders and purchasing look right now."
             />
 

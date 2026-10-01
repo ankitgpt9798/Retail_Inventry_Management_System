@@ -1,0 +1,13 @@
+$kind: http-request
+description: "Clears the cookie AND ends this token on the server: a copy of it stops working too."
+url: "{{baseUrl}}/auth/logout"
+method: POST
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("cookie cleared", () => { pm.expect(pm.cookies.has('token')).to.equal(false); });
+    language: text/javascript
+order: 21000

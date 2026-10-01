@@ -1,0 +1,29 @@
+$kind: http-request
+description: "**ADMIN or INVENTORY_MANAGER.** Code is stored in UPPER CASE; `manager` must be an active manager or admin."
+url: "{{baseUrl}}/warehouses"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Delhi Central {{runId}}",
+      "code": "del-{{runId}}",
+      "city": "Delhi",
+      "state": "Delhi",
+      "address": "Sector 5",
+      "capacity": 5000,
+      "manager": "{{managerId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("manager attached", () => { pm.expect(body.data.warehouse.manager._id).to.equal(pm.collectionVariables.get('managerId')); });
+      { const value = body.data.warehouse._id; if (value !== undefined && value !== null) pm.collectionVariables.set("warehouseId", String(value)); }
+      { const value = body.data.warehouse.code; if (value !== undefined && value !== null) pm.collectionVariables.set("warehouseCode", String(value)); }
+    language: text/javascript
+order: 13000

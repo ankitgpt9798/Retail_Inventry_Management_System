@@ -1,0 +1,40 @@
+$kind: http-request
+description: "**ADMIN or STAFF.** Only product and quantity are sent; prices and tax come from the server. `confirm: true` would reserve the stock straight away."
+url: "{{baseUrl}}/orders"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "customer": {
+        "name": "Priya Sharma",
+        "email": "priya@example.com",
+        "phone": "9876543210",
+        "address": "12 MG Road, Delhi"
+      },
+      "warehouse": "{{warehouseId}}",
+      "items": [
+        {
+          "product": "{{productId}}",
+          "quantity": 2
+        },
+        {
+          "product": "{{productBId}}",
+          "quantity": 3
+        }
+      ],
+      "notes": "Deliver after 5 pm"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("pricing done by the server: 2 x 1100 + 3 x 500, tax on the laptops", () => { pm.expect(body.data.order).to.include({ status: 'PENDING', subtotal: 3700, taxAmount: 396, totalAmount: 4096 }); });
+      { const value = body.data.order._id; if (value !== undefined && value !== null) pm.collectionVariables.set("orderId", String(value)); }
+      { const value = body.data.order.orderNumber; if (value !== undefined && value !== null) pm.collectionVariables.set("orderNumber", String(value)); }
+    language: text/javascript
+order: 2000

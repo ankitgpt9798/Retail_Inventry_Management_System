@@ -1,0 +1,3 @@
+$kind: collection
+description: Starts a run, logs in as the admin, creates one user per role, and shows sign-up, login, wrong-password and profile checks.
+order: 1000

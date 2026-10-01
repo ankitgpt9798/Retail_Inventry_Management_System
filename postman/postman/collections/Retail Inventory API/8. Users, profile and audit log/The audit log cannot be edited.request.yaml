@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/audit-logs/{{auditLogId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "action": "TAMPERED"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 404", () => pm.response.to.have.status(404));
+      const body = pm.response.json();
+      pm.test("error code is NOT_FOUND", () => pm.expect(body.error).to.equal("NOT_FOUND"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+    language: text/javascript
+order: 14000

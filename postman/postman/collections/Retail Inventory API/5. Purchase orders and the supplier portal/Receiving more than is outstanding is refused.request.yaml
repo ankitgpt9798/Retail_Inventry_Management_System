@@ -1,0 +1,25 @@
+$kind: http-request
+url: "{{baseUrl}}/purchases/{{purchaseId}}/receive"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "product": "{{productId}}",
+          "quantity": 100
+        }
+      ]
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 400", () => pm.response.to.have.status(400));
+      const body = pm.response.json();
+      pm.test("error code is OVER_RECEIPT", () => pm.expect(body.error).to.equal("OVER_RECEIPT"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+    language: text/javascript
+order: 19000

@@ -1,0 +1,3 @@
+$kind: collection
+description: DRAFT → submit → approve (by a DIFFERENT manager) → order (sent to the supplier) → supplier confirms → goods received (in parts) → RECEIVED. The supplier user only ever sees their own company's SENT orders.
+order: 6000

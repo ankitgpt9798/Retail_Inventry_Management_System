@@ -1,0 +1,15 @@
+$kind: http-request
+description: "Per product: quantity, reserved, available, stock value at cost. Filters: `warehouse`, `category`."
+url: "{{baseUrl}}/reports/inventory?warehouse={{warehouseId}}"
+method: GET
+queryParams:
+  warehouse: "{{warehouseId}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("summary and rows", () => { pm.expect(body.data.summary.productCount).to.equal(2); pm.expect(body.data.rows).to.have.length(2); });
+    language: text/javascript
+order: 3000

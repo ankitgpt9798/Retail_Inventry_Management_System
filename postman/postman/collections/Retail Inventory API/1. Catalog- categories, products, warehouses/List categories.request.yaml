@@ -1,0 +1,18 @@
+$kind: http-request
+description: "Any staff role. Filters: `search`, `status`, `page`, `limit`."
+url: "{{baseUrl}}/categories?search=Electronics {{runId}}&status=ACTIVE&page=1&limit=10"
+method: GET
+queryParams:
+  search: Electronics {{runId}}
+  status: ACTIVE
+  page: "1"
+  limit: "10"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 200", () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("one match, with paging info", () => { pm.expect(body.data.categories).to.have.length(1); pm.expect(body.data.pagination.total).to.equal(1); });
+    language: text/javascript
+order: 4000

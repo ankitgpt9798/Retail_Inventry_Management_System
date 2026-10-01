@@ -1,0 +1,29 @@
+$kind: http-request
+description: Public. Always creates a STAFF user with status PENDING, whatever the request says (here it even asks for ADMIN). An admin must approve it before it can log in; no cookie is set.
+url: "{{baseUrl}}/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "New Joiner",
+      "email": "{{pendingEmail}}",
+      "password": "Joiner12345",
+      "phone": "9000000009",
+      "role": "ADMIN"
+    }
+scripts:
+  - type: beforeRequest
+    code: pm.collectionVariables.set("pendingEmail", `pending-${pm.collectionVariables.get("runId")}@postman.test`);
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test("status is 201", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test("answer has the standard shape", () => { pm.expect(body.success).to.equal(true); pm.expect(body.message).to.be.a("string"); });
+      pm.test("always STAFF and PENDING", () => { pm.expect(body.data.user).to.include({ role: "STAFF", status: "PENDING" }); });
+      pm.test("no login cookie is issued", () => { pm.expect(pm.response.headers.has("Set-Cookie")).to.equal(false); });
+    language: text/javascript
+order: 9000

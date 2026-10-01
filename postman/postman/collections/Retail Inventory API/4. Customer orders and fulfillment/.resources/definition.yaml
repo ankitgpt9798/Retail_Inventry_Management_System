@@ -1,0 +1,3 @@
+$kind: collection
+description: "Run as **staff** (or admin). Managers can only VIEW orders. Flow: PENDING → confirm (stock reserved) → PROCESSING → PACKED → SHIPPED (stock leaves) → DELIVERED. Prices always come from the product list."
+order: 5000

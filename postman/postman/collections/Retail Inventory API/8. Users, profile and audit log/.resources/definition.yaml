@@ -1,0 +1,3 @@
+$kind: collection
+description: User management and the audit log are **ADMIN only**. Deleting a user never removes the record; it sets the status to INACTIVE.
+order: 9000

@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/orders/{{orderId}}"
+method: DELETE
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "reason": "too late"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("status is 409", () => pm.response.to.have.status(409));
+      const body = pm.response.json();
+      pm.test("error code is INVALID_ORDER_STATUS", () => pm.expect(body.error).to.equal("INVALID_ORDER_STATUS"));
+      pm.test("error answer has the standard shape", () => { pm.expect(body.success).to.equal(false); pm.expect(body.message).to.be.a("string"); });
+    language: text/javascript
+order: 13000
